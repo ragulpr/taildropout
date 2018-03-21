@@ -1,5 +1,3 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -30,15 +28,21 @@ class ContiguousDropout(nn.Module):
     """
     def __init__(self,p=0.5):
         super(ContiguousDropout, self).__init__()
+        if p < 0 or p > 1:
+            raise ValueError("dropout probability has to be between 0 and 1, "
+                             "but got {}".format(p))
+            
         self.scale = get_params(p,lr = 1e-5)
         self.cdf = lambda x,scale : 1-torch.exp(-x/scale) # expo distribution
     
     def forward(self, input, dropout_start = None):
-        if self.training and dropout_start is None:        
+        if self.training and dropout_start is None:
             n,k = input.shape[0],input.shape[-1]
-            linspace = torch.linspace(1/k,(k-1)/k,k).type(input.type())            
+            linspace = torch.arange(1, k+1, 1).type(input.type()) # torch.linspace not cuda
+            if isinstance(input,Variable):
+                linspace = Variable(linspace)
             uniform = input.new(torch.Size([n,1])).uniform_()
-            prob = self.cdf(linspace,self.scale)
+            prob = self.cdf(linspace,self.scale*k) # self.scale*k faster than linspace/k
             mask = prob<uniform
             return input*mask.type(input.type())      
             

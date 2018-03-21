@@ -1,5 +1,3 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -12,16 +10,28 @@ def test_ContiguousDropout():
     k = 10
     dropout = ContiguousDropout()
 
+    # test inputs
+    assert dropout(torch.ones(n,k)).shape == (n,k) # tensor
+    assert dropout(Variable(torch.ones(n,k))).shape == (n,k) # variable
+
+    assert dropout(torch.ones(1,k)).shape == (1,k) # 
+    assert dropout(torch.ones(1,1)).shape == (1,1) # 
+
+    dropout.eval()
+    assert dropout(torch.ones(1,k)).shape == (1,k) # 
+    assert dropout(torch.ones(1,1)).shape == (1,1) # 
+    dropout.train()
+
     x = Variable(torch.ones(n,k))    
     y = dropout(x,2)
     # all but first 2 cols zero
-    assert y[:,2:].sum()==0
+    assert (y[:,2:].sum()==0).all()
     # first 2 cols ones
-    assert torch.mean(y[:,:2])==1
+    assert (torch.mean(y[:,:2])==1).all()
     dropout.eval()
     y = dropout(x)
     # all columns exactly one
-    assert y.mean()==1.
+    assert (y.mean()==1.).all()
     
     # Test routes
     y_eval = dropout(x)
@@ -34,11 +44,19 @@ def test_ContiguousDropout():
     
     # Test that dropout probability is correct
     torch.manual_seed(1)
-    n = 10000
-    k = 100
-    for p in [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]:
-        dropout = ContiguousDropout(p)
-        y = dropout(Variable(torch.ones(n,k)))    
-        assert (1-y.mean()-p).abs()<1e-2,[1-y.mean().data.numpy()[0],p]
+    n = 100000
+    epsilon = 2e-2
+    for k in [10,50,100,1000]:
+        x = Variable(torch.ones(n,k))
+        for p in [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]:
+            dropout = ContiguousDropout(p)
+            y = dropout(x)
+            print([k,p,1-y.mean().cpu().data.numpy()])
+            assert (1-y.mean()-p).abs()<epsilon,[k,p,1-y.mean().cpu().data.numpy()]
     
-    
+
+test_ContiguousDropout()
+if torch.cuda.is_available():
+    torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    print('GPU;')
+    test_ContiguousDropout()
