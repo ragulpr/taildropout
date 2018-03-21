@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
 
-from dropout import ContiguousDropout
+from dropout_ import ContiguousDropout
 
 def test_ContiguousDropout():
     n = 10
@@ -14,7 +14,7 @@ def test_ContiguousDropout():
     assert dropout(torch.ones(n,k)).shape == (n,k) # tensor
     assert dropout(Variable(torch.ones(n,k))).shape == (n,k) # variable
 
-    assert dropout(torch.ones(1,k)).shape == (1,k) # 
+    assert dropout(torch.ones(1,k)).shape == (1,k),dropout(torch.ones(1,k)).shape # 
     assert dropout(torch.ones(1,1)).shape == (1,1) # 
 
     dropout.eval()
@@ -45,14 +45,17 @@ def test_ContiguousDropout():
     # Test that dropout probability is correct
     torch.manual_seed(1)
     n = 100000
-    epsilon = 2e-2
     for k in [10,50,100,1000]:
+        epsilon = 2e-2
+        if k ==10:
+            epsilon = 5e-2
         x = Variable(torch.ones(n,k))
         for p in [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]:
             dropout = ContiguousDropout(p)
             y = dropout(x)
-            print([k,p,1-y.mean().cpu().data.numpy()])
-            assert (1-y.mean()-p).abs()<epsilon,[k,p,1-y.mean().cpu().data.numpy()]
+            err = (1-y.mean()-p).abs()
+            print(k,p,1-y.mean().cpu().data.numpy(),err.cpu().data.numpy())
+            assert err<epsilon,[k,p,1-y.mean().cpu().data.numpy(),err.cpu().data.numpy()]
     
 
 test_ContiguousDropout()

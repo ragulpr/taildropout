@@ -26,7 +26,7 @@ class ContiguousDropout(nn.Module):
         
         Assumes dropout dimension = -1
     """
-    def __init__(self,p=0.5):
+    def __init__(self,p=0.5, batch_dim=0, dropout_dim = -1):
         super(ContiguousDropout, self).__init__()
         if p < 0 or p > 1:
             raise ValueError("dropout probability has to be between 0 and 1, "
@@ -34,21 +34,27 @@ class ContiguousDropout(nn.Module):
             
         self.scale = get_params(p,lr = 1e-5)
         self.cdf = lambda x,scale : 1-torch.exp(-x/scale) # expo distribution
-    
+        self.batch_dim = batch_dim
+        self.dropout_dim = dropout_dim
+
     def forward(self, input, dropout_start = None):
+        n_batch,n_features = input.shape[self.batch_dim],input.shape[self.dropout_dim]
+
         if self.training and dropout_start is None:
-            n,k = input.shape[0],input.shape[-1]
-            linspace = torch.arange(1, k+1, 1).type(input.type()) # torch.linspace not cuda
+            type_out = input.type()
+
+            linspace = torch.arange(1, n_features+1, 1).type(type_out) # torch.linspace not cuda
             if isinstance(input,Variable):
                 linspace = Variable(linspace)
-            uniform = input.new(torch.Size([n,1])).uniform_()
-            prob = self.cdf(linspace,self.scale*k) # self.scale*k faster than linspace/k
+
+            uniform = input.new(torch.Size([n_batch,1])).uniform_()
+            prob = self.cdf(linspace,self.scale*n_features) # self.scale*n_features faster than linspace/n_features
             mask = prob<uniform
-            return input*mask.type(input.type())      
+            return input*mask.type(type_out)      
             
         if dropout_start is not None:
             # Evaluation
-            if dropout_start>=input.shape[-1]:
+            if dropout_start>=n_features:
                 # straight through
                 return input
             
