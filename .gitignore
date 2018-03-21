@@ -1,0 +1,10 @@
+
+\.ipynb_checkpoints/
+
+sardinery\.egg-info/
+
+sardinery/__pycache__/
+
+tests/__pycache__/
+
+\.cache/v/cache/
