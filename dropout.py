@@ -20,6 +20,11 @@ def get_params(p = 0.5,lr = 1e-5):
             break
     return a
 
+def ones_replaced(n,dim,val):
+    ix = [1 for _ in range(n)]
+    ix[dim] = val
+    return ix
+
 class ContiguousDropout(nn.Module):
     r"""During training, randomly zeroes last n columns.
         Half speed of linear-fused op.
@@ -47,7 +52,13 @@ class ContiguousDropout(nn.Module):
             if isinstance(input,Variable):
                 linspace = Variable(linspace)
 
-            uniform = input.new(torch.Size([n_batch,1])).uniform_()
+            if len(input.shape)==2:
+                uniform = input.new(torch.Size([n_batch,1])).uniform_()
+            else:
+                n_dim = len(input.shape)
+                uniform = input.new().resize_(ones_replaced(n_dim,self.batch_dim,n_batch)).uniform_() # resized [n_batch,1] if input 2d
+                linspace.resize_(ones_replaced(n_dim,self.dropout_dim,n_features)) # resized [1,n_features] if input 2d
+
             prob = self.cdf(linspace,self.scale*n_features) # self.scale*n_features faster than linspace/n_features
             mask = prob<uniform
             return input*mask.type(type_out)      
