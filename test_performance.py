@@ -8,7 +8,7 @@ from dropout import ContiguousDropout
 import argparse
 # python -m cProfile -s cumtime test_performance.py --repeats  10
 parser = argparse.ArgumentParser(description='')
-parser.add_argument('--repeats', type=int, default=100000, metavar='N')
+parser.add_argument('--repeats', type=int, default=1000000, metavar='N')
 parser.add_argument('--n-features', type=int, default=500, metavar='N')
 parser.add_argument('--batch-size', type=int, default=1000, metavar='N')
 parser.add_argument('--no-cuda', action='store_true', default=False,help='disables CUDA training')
@@ -44,7 +44,6 @@ def test_Dropout():
     for _ in range(args.repeats):        
         y = dropout(y)
     return None
-
 
 for _ in range(3):
     start = time.time();test_ContiguousDropout();print(time_since(start),' ContiguousDropout')
