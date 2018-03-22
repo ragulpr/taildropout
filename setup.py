@@ -2,4 +2,4 @@
 # Setup file for pytorch 4.*
 from distutils.core import setup
 
-setup(name='', version='0.1', install_requires=[])
+setup(name='', version='0.1', install_requires=['numpy','pillow','torchvision'])
