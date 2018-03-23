@@ -43,7 +43,7 @@ def save_pickle(object,filename):
             pickle.dump(object,f)
 
 def load_pickle(filename):
-    with open(filename,'wb') as f:
+    with open(filename,'rb') as f:
             return pickle.load(f)
 
 
