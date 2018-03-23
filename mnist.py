@@ -9,6 +9,8 @@ automatically in the documentation.
 
 import argparse
 import os
+import pickle
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -19,8 +21,11 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets.mnist import MNIST, read_image_file, read_label_file
 
-import nsml
-from nsml import IS_DATASET, DATASET_PATH
+try:
+    import nsml
+    from nsml import IS_DATASET, DATASET_PATH
+except:
+    pass
 
 from dropout import ContiguousDropout
 
@@ -98,21 +103,20 @@ class Net(nn.Module):
         self.dropout2d = ContiguousDropout(args.dropoutprob,dropout_dim =1) if args.cdropout else nn.Dropout2d(args.dropoutprob)
         self.fc1 = nn.Linear(320, 50)
         self.fc1_bn = nn.BatchNorm1d(50)
-        self.dropout = ContiguousDropout(args.dropoutprob) if args.cdropout else nn.Dropout2d(args.dropoutprob)
+        self.dropout = ContiguousDropout(args.dropoutprob) if args.cdropout else nn.Dropout(args.dropoutprob)
         self.fc2 = nn.Linear(50, 10)
         self.conv2_bn = nn.BatchNorm2d(20)
 
-    def forward(self, x):
+    def forward(self, x,n_used1=None,n_used2=None):
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.dropout2d(self.conv2_bn(self.conv2(x))), 2))
+        x = self.conv2_bn(self.conv2(x))
+        x = self.dropout2d(x,dropout_start = n_used1) if args.cdropout else self.dropout2d(x)
+        x = F.relu(F.max_pool2d(x, 2))
         x = x.view(-1, 320)
-        a = x
         x = F.relu(self.fc1_bn(self.fc1(x)))
-        b = x
-        x = self.dropout(x)
+        x = self.dropout(x,dropout_start = n_used1) if args.cdropout else self.dropout(x)
         x = self.fc2(x)
-        h = torch.cat((a,b),dim=1)
-        return F.log_softmax(x), h
+        return F.log_softmax(x)
 
 
 def train(epoch, scope):
@@ -129,7 +133,7 @@ def train(epoch, scope):
             data, target = data.cuda(), target.cuda()
         data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
-        output, h = model(data)
+        output = model(data)
         loss = F.nll_loss(output, target)
 
         loss.backward()
@@ -147,7 +151,7 @@ def train(epoch, scope):
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.data[0]))
-
+            train_losses.append([epoch,batch_idx,loss.cpu().data.numpy()]) # DEBUG
 
 def test(scope):
     model.eval()
@@ -157,7 +161,7 @@ def test(scope):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         data, target = Variable(data, volatile=True), Variable(target)
-        output, _ = model(data)
+        output = model(data)
         test_loss += F.nll_loss(output, target, size_average=False).data[0]  # sum up batch loss
         pred = output.data.max(1)[1]  # get the index of the max log-probability
         correct += pred.eq(target.data).cpu().float().sum()
@@ -173,12 +177,20 @@ def test(scope):
     #     test__loss=test_loss,
     #     test__accuracy=accuracy
     # )
+    test_losses.append([epoch,test_loss.data.cpu().numpy()]) # DEBUG
 
+def save_pickle(object,filename):
+    with open(filename,'wb') as f:
+            pickle.dump(object,f)
+
+def load_pickle(filename):
+    with open(filename,'rb') as f:
+            return pickle.load(f)
 
 if __name__ == '__main__':
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
-    parser.add_argument('--cdropout', action='store_true', default=True,
+    parser.add_argument('--cdropout', action='store_true', default=False,
                         help='use contiguous dropout')
     parser.add_argument('--dropoutprob', type=float, default=0.5, metavar='LR',
                         help='dropout probability')
@@ -253,10 +265,22 @@ if __name__ == '__main__':
     nsml.bind(infer=infer, model=model, optimizer=optimizer)
     if args.pause:
         nsml.paused(scope=locals())
-
+    test_losses = [] # DEBUG
+    train_losses = [] # DEBUG
     if args.mode == 'train':
         for epoch in range(1, args.epochs + 1):
             train(epoch, scope=locals())
             if epoch % 10 == 9:
                 nsml.save(epoch)
             test(scope=locals())
+
+    torch.save(model.cpu().state_dict(), 'model.pt') # DEBUG
+    print('DROPOUT TYPE ',model.dropout) # DEBUG
+
+    print(train_losses,test_losses)
+    save_pickle(train_losses,'train_losses.pkl')
+    save_pickle(test_losses,'test_losses.pkl')
+
+
+
+
