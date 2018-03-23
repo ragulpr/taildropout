@@ -93,28 +93,32 @@ def data_loader(root_path, train=True):
         }
     return data_dict
 
-
 # simple CNN
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.dropout2d = ContiguousDropout(args.dropoutprob,dropout_dim =1) if args.cdropout else nn.Dropout2d(args.dropoutprob)
+        self.dropout2d = nn.Dropout2d(args.dropoutprob)
+        self.cdropout = ContiguousDropout(args.dropoutprob,dropout_dim =1)
         self.fc1 = nn.Linear(320, 50)
         self.fc1_bn = nn.BatchNorm1d(50)
-        self.dropout = ContiguousDropout(args.dropoutprob) if args.cdropout else nn.Dropout(args.dropoutprob)
+        self.dropout = nn.Dropout(args.dropoutprob)
         self.fc2 = nn.Linear(50, 10)
         self.conv2_bn = nn.BatchNorm2d(20)
 
     def forward(self, x,n_used1=None,n_used2=None):
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
         x = self.conv2_bn(self.conv2(x))
-        x = self.dropout2d(x,dropout_start = n_used1) if args.cdropout else self.dropout2d(x)
+        x = self.cdropout(x,dropout_start = n_used1) if (args.cdropout or n_used1 is not None) else self.dropout2d(x)
+        if not args.cdropout and n_used1 is not None:
+            x = x*(320/max(1,n_used1)) # TODO test forward with n_used=320 equals. DEBUG
         x = F.relu(F.max_pool2d(x, 2))
         x = x.view(-1, 320)
         x = F.relu(self.fc1_bn(self.fc1(x)))
-        x = self.dropout(x,dropout_start = n_used1) if args.cdropout else self.dropout(x)
+        x = self.cdropout(x,dropout_start = n_used2) if (args.cdropout or n_used2 is not None) else self.dropout(x)
+        if not args.cdropout and n_used2 is not None: # DEBUG
+            x = x*(50/max(1,n_used2)) 
         x = self.fc2(x)
         return F.log_softmax(x)
 
@@ -153,23 +157,30 @@ def train(epoch, scope):
                 100. * batch_idx / len(train_loader), loss.data[0]))
             train_losses.append([epoch,batch_idx,loss.cpu().data.numpy()]) # DEBUG
 
-def test(scope):
+def evaluate_test(scope,**kwargs):
+    """Returns scores on test set. 
+    """
     model.eval()
     test_loss = 0
     correct = 0
+    n_samples = len(test_loader.dataset)
+
     for data, target in test_loader:
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         data, target = Variable(data, volatile=True), Variable(target)
-        output = model(data)
+        output = model(data,**kwargs)
         test_loss += F.nll_loss(output, target, size_average=False).data[0]  # sum up batch loss
         pred = output.data.max(1)[1]  # get the index of the max log-probability
         correct += pred.eq(target.data).cpu().float().sum()
+    test_loss /= n_samples
+    accuracy = correct / n_samples 
+    return test_loss,accuracy,correct,n_samples
 
-    test_loss /= len(test_loader.dataset)
-    accuracy = correct / len(test_loader.dataset)
+def test(scope):
+    test_loss,accuracy,correct,n_samples = evaluate_test(scope=locals())
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-        test_loss, correct, len(test_loader.dataset),
+        test_loss, correct, n_samples,
         100. * accuracy))
     # nsml.report(
     #     summary=True,
@@ -178,6 +189,22 @@ def test(scope):
     #     test__accuracy=accuracy
     # )
     test_losses.append([epoch,test_loss.data.cpu().numpy()]) # DEBUG
+
+def eval_incrementally_dropout(scope):
+    model.eval()
+    everyth = 5
+    results = torch.zeros(320//everyth,50//everyth,2)
+    test_loss,accuracy,_,_ = evaluate_test(scope=locals(),n_used1=0,n_used2=0)
+    results[0,:,0] = results[:,0,0] = test_loss
+    results[0,:,1] = results[:,0,1] = accuracy
+
+    for k1 in range(320//everyth):
+        for k2 in range(50//everyth):
+            test_loss,accuracy,_,_ = evaluate_test(scope=locals(),n_used1=k1*everyth+1,n_used2=k2*everyth+1)
+            results[k1,k2,0] = test_loss
+            results[k1,k2,1] = accuracy
+            print(k1,k2,'',test_loss.cpu().numpy(),accuracy.cpu().numpy())
+    return results
 
 def save_pickle(object,filename):
     with open(filename,'wb') as f:
@@ -190,11 +217,6 @@ def load_pickle(filename):
 if __name__ == '__main__':
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
-    parser.add_argument('--cdropout', action='store_true', default=False,
-                        help='use contiguous dropout')
-    parser.add_argument('--dropoutprob', type=float, default=0.5, metavar='LR',
-                        help='dropout probability')
-
     parser.add_argument('--mode', type=str, default='train')
     parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 64)')
@@ -217,6 +239,15 @@ if __name__ == '__main__':
     parser.add_argument('--iteration', type=str, default='0')
     parser.add_argument('--multigpu', action='store_true', default=False)
     parser.add_argument('--pause', type=int, default=0)
+
+    ##
+    parser.add_argument('--cdropout', action='store_true', default=False,
+                        help='use contiguous dropout')
+    parser.add_argument('--dropoutprob', type=float, default=0.5, metavar='LR',
+                        help='dropout probability')
+    # parser.add_argument('--fc1-size', type=int, default=320, metavar='N',help='')
+    # parser.add_argument('--fc2-size', type=int, default=50, metavar='N',help='')
+
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
@@ -238,7 +269,7 @@ if __name__ == '__main__':
                 transforms.ToTensor(),
                 transforms.Normalize((0.1307,), (0.3081,))
             ])),
-            batch_size=args.batch_size, shuffle=False, **kwargs)
+            batch_size=args.test_batch_size, shuffle=False, **kwargs)
     else:
         preprocessed_file = ['./processed.pt']
         nsml.cache(preprocess, output_path=preprocessed_file, data=data_loader(DATASET_PATH))
@@ -246,7 +277,7 @@ if __name__ == '__main__':
         train_loader = torch.utils.data.DataLoader(dataset['train'],
                                                    batch_size=args.batch_size, shuffle=True, **kwargs)
         test_loader = torch.utils.data.DataLoader(dataset['test'],
-                                                  batch_size=args.batch_size, shuffle=False, **kwargs)
+                                                  batch_size=args.test_batch_size, shuffle=False, **kwargs)
 
     model = Net()
     if args.multigpu:
@@ -261,12 +292,12 @@ if __name__ == '__main__':
         lr=args.lr,
         momentum=args.momentum)
 
-    # bind_model(model=model, optimizer=optimizer)
     nsml.bind(infer=infer, model=model, optimizer=optimizer)
     if args.pause:
         nsml.paused(scope=locals())
     test_losses = [] # DEBUG
     train_losses = [] # DEBUG
+
     if args.mode == 'train':
         for epoch in range(1, args.epochs + 1):
             train(epoch, scope=locals())
@@ -274,13 +305,24 @@ if __name__ == '__main__':
                 nsml.save(epoch)
             test(scope=locals())
 
-    torch.save(model.cpu().state_dict(), 'model.pt') # DEBUG
-    print('DROPOUT TYPE ',model.dropout) # DEBUG
+    incremental_eval = eval_incrementally_dropout(scope=locals())
+    torch.save(incremental_eval.cpu(), 'incremental_eval_matrix.pt') # DEBUG
 
-    print(train_losses,test_losses)
+    if not args.cdropout:
+        # Debug : only to test if the (n/k)-factor is fair/improves.
+        args.cdropout = True 
+        incremental_eval = eval_incrementally_dropout(scope=locals())
+        torch.save(incremental_eval.cpu(), 'incremental_eval_matrix_method2.pt') # DEBUG
+        args.cdropout = False
+
+    torch.save(model.cpu().state_dict(), 'model.pt') # DEBUG
     save_pickle(train_losses,'train_losses.pkl')
     save_pickle(test_losses,'test_losses.pkl')
 
+
+    print(args) # DEBUG
+    print('min train_loss: ',min([l[1] for l in train_losses]))
+    print('min test_loss: ',min([l[1] for l in test_losses]))
 
 
 
