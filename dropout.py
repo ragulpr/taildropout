@@ -41,9 +41,15 @@ class ContiguousDropout(nn.Module):
         self.cdf = lambda x,scale : 1-torch.exp(-x/scale) # expo distribution
         self.batch_dim = batch_dim
         self.dropout_dim = dropout_dim
+        self.p = p
 
     def forward(self, input, dropout_start = None):
         n_batch,n_features = input.shape[self.batch_dim],input.shape[self.dropout_dim]
+        if dropout_start is None:
+            if self.p==0:
+                dropout_start = n_features
+            elif self.p == 1:
+                dropout_start = 0
 
         if self.training and dropout_start is None:
             type_out = input.type()
