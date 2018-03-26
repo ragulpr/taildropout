@@ -9,44 +9,64 @@ import argparse
 # python -m cProfile -s cumtime test_performance.py --repeats  10
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('--repeats', type=int, default=1000000, metavar='N')
-parser.add_argument('--n-features', type=int, default=500, metavar='N')
+parser.add_argument('--n-features', type=int, default=1000, metavar='N')
 parser.add_argument('--batch-size', type=int, default=1000, metavar='N')
-parser.add_argument('--no-cuda', action='store_true', default=False,help='disables CUDA training')
+parser.add_argument('--no-cuda', action='store_true',
+                    default=False, help='disables CUDA training')
 args = parser.parse_args()
 
 args.cuda = not args.no_cuda and torch.cuda.is_available()
-print('GPU: ',args.cuda)
+print('GPU: ', args.cuda)
 print(torch.__version__)
 if args.cuda:
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
-import time, math
+import time
+import math
+
+
 def time_since(since):
     s = time.time() - since
     m = math.floor(s / 60)
     s -= m * 60
     return '%dm %ds' % (m, s)
 
-def test_ContiguousDropout():
+
+def cdropout_forward(eval_mode = False):
     n = args.batch_size
     k = args.n_features
     dropout = ContiguousDropout()
-    y = Variable(torch.ones(n,k))
-    for _ in range(args.repeats):        
+    y = Variable(torch.ones(n, k))
+    if eval_mode==True:
+        dropout.eval()
+    for _ in range(args.repeats):
         y = dropout(y)
     return None
 
-def test_Dropout():
+
+def dropout_forward(eval_mode = False):
     n = args.batch_size
     k = args.n_features
     dropout = nn.Dropout()
-    y = Variable(torch.ones(n,k))
-    for _ in range(args.repeats):        
+    y = Variable(torch.ones(n, k))
+    if eval_mode:
+        dropout.eval()
+    for _ in range(args.repeats):
         y = dropout(y)
     return None
 
 for _ in range(3):
-    start = time.time();test_ContiguousDropout();print(time_since(start),' ContiguousDropout')
-    start = time.time();test_Dropout();print(time_since(start),' Dropout')
-    start = time.time();test_ContiguousDropout();print(time_since(start),' ContiguousDropout')
-    start = time.time();test_Dropout();print(time_since(start),' Dropout')
+    start = time.time()
+    cdropout_forward()
+    print(time_since(start), ' ContiguousDropout rand')
+    start = time.time()
+    dropout_forward()
+    print(time_since(start), ' Dropout')
+
+for _ in range(3):
+    start = time.time()
+    cdropout_forward(eval_mode=True)
+    print(time_since(start), ' ContiguousDropout eval')
+    start = time.time()
+    dropout_forward(eval_mode=True)
+    print(time_since(start), ' Dropout eval')
