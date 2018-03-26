@@ -15,6 +15,7 @@ parser.add_argument('--no-cuda', action='store_true',
                     default=False, help='disables CUDA training')
 args = parser.parse_args()
 
+print('args.no_cuda: ', args.no_cuda)
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 print('GPU: ', args.cuda)
 print(torch.__version__)
@@ -55,18 +56,20 @@ def dropout_forward(eval_mode = False):
         y = dropout(y)
     return None
 
+print('FORWARD rand')
 for _ in range(3):
     start = time.time()
     cdropout_forward()
-    print(time_since(start), ' ContiguousDropout rand')
-    start = time.time()
-    dropout_forward()
-    print(time_since(start), ' Dropout')
+    print(time_since(start), ' ContiguousDropout')
+    # start = time.time()
+    # dropout_forward()
+    # print(time_since(start), ' Dropout')
 
+print('FORWARD eval')
 for _ in range(3):
     start = time.time()
     cdropout_forward(eval_mode=True)
-    print(time_since(start), ' ContiguousDropout eval')
+    print(time_since(start), ' ContiguousDropout')
     start = time.time()
     dropout_forward(eval_mode=True)
-    print(time_since(start), ' Dropout eval')
+    print(time_since(start), ' Dropout')
