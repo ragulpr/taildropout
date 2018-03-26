@@ -112,13 +112,13 @@ class Net(nn.Module):
         x = self.conv2_bn(self.conv2(x))
         x = self.cdropout(x,dropout_start = n_used1) if (args.cdropout or n_used1 is not None) else self.dropout2d(x)
         if not args.cdropout and n_used1 is not None:
-            x = x*(320/max(1,n_used1)) # TODO test forward with n_used=320 equals. DEBUG
+            x = x*(x.shape[1]/max(1,n_used1)) # DEBUG
         x = F.relu(F.max_pool2d(x, 2))
         x = x.view(-1, 320)
         x = F.relu(self.fc1_bn(self.fc1(x)))
         x = self.cdropout(x,dropout_start = n_used2) if (args.cdropout or n_used2 is not None) else self.dropout(x)
         if not args.cdropout and n_used2 is not None: # DEBUG
-            x = x*(50/max(1,n_used2)) 
+            x = x*(x.shape[1]/max(1,n_used2))
         x = self.fc2(x)
         return F.log_softmax(x)
 
@@ -192,13 +192,13 @@ def test(scope):
 
 def eval_incrementally_dropout(scope):
     model.eval()
-    everyth = 5
-    results = torch.zeros(320//everyth,50//everyth,2)
+    everyth = 1
+    results = torch.zeros(20//everyth,50//everyth,2)
     test_loss,accuracy,_,_ = evaluate_test(scope=locals(),n_used1=0,n_used2=0)
     results[0,:,0] = results[:,0,0] = test_loss
     results[0,:,1] = results[:,0,1] = accuracy
 
-    for k1 in range(320//everyth):
+    for k1 in range(20//everyth):
         for k2 in range(50//everyth):
             test_loss,accuracy,_,_ = evaluate_test(scope=locals(),n_used1=k1*everyth+1,n_used2=k2*everyth+1)
             results[k1,k2,0] = test_loss
