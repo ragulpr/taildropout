@@ -37,49 +37,62 @@ class ContiguousDropout(nn.Module):
             raise ValueError("dropout probability has to be between 0 and 1, "
                              "but got {}".format(p))
             
-        self.scale = get_params(p,lr = 1e-5)
         self.cdf = lambda x,scale : 1-torch.exp(-x/scale) # expo distribution
         self.batch_dim = batch_dim
         self.dropout_dim = dropout_dim
         self.p = p
+        if p==0 or p==1:
+            self.scale = None
+        else:
+            self.scale = get_params(p,lr = 1e-5)
 
     def forward(self, input, dropout_start = None):
         n_batch,n_features = input.shape[self.batch_dim],input.shape[self.dropout_dim]
-        if dropout_start is None:
-            if self.p==0:
-                dropout_start = n_features
-            elif self.p == 1:
-                dropout_start = 0
-
+        
         if self.training and dropout_start is None:
-            type_out = input.type()
+            if self.p==0:
+                mode = 'zero'
+            elif self.p==1:
+                mode = 'straight-through'
+            else:
+                mode = 'random'
+        elif dropout_start is not None:
+            if dropout_start>=n_features:
+                mode = 'straight-through'
+            elif dropout_start==0:
+                mode = 'zero'
+                
+            else:
+                mode = 'first_n'
+        else:
+            mode = 'straight-through'
 
+        if mode == 'random':
+            type_out = input.type()
             linspace = torch.arange(1, n_features+1, 1).type(type_out) # torch.linspace not cuda
             if isinstance(input,Variable):
                 linspace = Variable(linspace)
 
-            if len(input.shape)==2:
+            if len(input.shape)==2 and (dropout_start ==1 or dropout_start ==-1):
                 uniform = input.new(torch.Size([n_batch,1])).uniform_()
             else:
                 n_dim = len(input.shape)
                 uniform = input.new().resize_(ones_replaced(n_dim,self.batch_dim,n_batch)).uniform_() # resized [n_batch,1] if input 2d
                 linspace.resize_(ones_replaced(n_dim,self.dropout_dim,n_features)) # resized [1,n_features] if input 2d
-
             prob = self.cdf(linspace,self.scale*n_features) # self.scale*n_features faster than linspace/n_features
             mask = prob<uniform
+            # TODO safe to input[prob>=uniform].fill_(0)?
             return input*mask.type(type_out)      
             
-        if dropout_start is not None:
-            # Evaluation
-            if dropout_start>=n_features:
-                # straight through
-                return input
-            
-            mask = torch.zeros_like(input)
-            if dropout_start>0:
-                mask[...,:dropout_start] = 1.
-            return input*mask
-        
-        if not self.training and dropout_start is None:
-            # Evaluation : straight through
+        if mode == 'straight-through':
             return input
+        if mode == 'first_n':
+            mask = torch.ones_like(input)
+            mask.slice(self.dropout_dim,dropout_start).fill_(0)
+            # TODO safe to input.slice(dropout_dim,dropout_start).fill_(0) ?
+            return input*mask
+        if mode == 'zero':
+            # TODO safe to input.fill_(0) ?
+            return input*0
+
+        raise ValueError
