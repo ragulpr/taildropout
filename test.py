@@ -5,26 +5,20 @@ import torch.nn.functional as F
 
 from dropout import ContiguousDropout
 
-
-def test_initializations():
-    n = 11
-    k = 13
-    dropout = ContiguousDropout()
-
-    x = Variable(torch.ones(n, k))
-    y = dropout(x, 2)
-    # all but first 2 cols zero
-    assert (y[:, 2:].sum() == 0).all()
-    # first 2 cols ones
-    assert (torch.mean(y[:, :2]) == 1).all()
-    dropout.eval()
-    y = dropout(x)
-    # all columns exactly one
-    assert (y.mean() == 1.).all()
-
-
 def test_expected_mask():
     def nd_asserter(dropout, x):
+        # Assert shapes
+        dropout.train()
+        assert dropout(x).shape == x.shape 
+        assert dropout(x, 2).shape == x.shape 
+        assert dropout(x.data).shape == x.shape # tensor
+        dropout.eval()
+        assert dropout(x).shape == x.shape 
+        assert dropout(x, 2).shape == x.shape 
+        assert dropout(x.data).shape == x.shape # tensor
+
+        # Assert values
+        dropout.train()
         y = dropout(x, 2).squeeze()
         # all but first 2 cols zero
         assert (y[:, 2:].sum() == 0).all(), y
@@ -35,7 +29,7 @@ def test_expected_mask():
         # all columns exactly one
         assert (y.mean() == 1.).all()
 
-        # Test routes
+        # Test routes when dropout_start is/not None
         y_eval = dropout(x)
         y_eval2 = dropout(x, 5)
         dropout.train()
@@ -60,26 +54,11 @@ def test_expected_mask():
     nd_asserter(dropout=ContiguousDropout(batch_dim=1, dropout_dim=3),
                 x=Variable(torch.ones(1, n, 1, k, 1)))
 
-
-def test_shapes():
-    n = 11
-    k = 13
-    dropout = ContiguousDropout()
-    # test inputs
-    for size in [[1, 1], [1, k], [n, k], [n, 1, k]]:
-        dropout.train()
-        assert dropout(Variable(torch.ones(size))
-                       ).shape == torch.Size(size)  # variable
-        assert dropout(torch.ones(size)).shape == torch.Size(size)
-        dropout.eval()
-        assert dropout(Variable(torch.ones(size))
-                       ).shape == torch.Size(size)  # variable
-        assert dropout(torch.ones(size)).shape == torch.Size(size)
-
-    # nd
-    dropout = ContiguousDropout(batch_dim=2, dropout_dim=1)
-    assert dropout(torch.ones([3, k, n, 1])).shape == torch.Size([3, k, n, 1])
-
+    # Test 0/1 probability
+    nd_asserter(dropout=ContiguousDropout(0),
+                x=Variable(torch.ones(n, k)))
+    nd_asserter(dropout=ContiguousDropout(1),
+                x=Variable(torch.ones(n, k)))
 
 def test_grad():
     n = 2
@@ -123,8 +102,6 @@ def test_dropoutprob():
 print('CPU;')
 print('test_expected_mask')
 test_expected_mask()
-print('test_shapes')
-test_shapes()
 print('test_grad')
 test_grad()
 print('test_dropoutprob')
@@ -134,8 +111,6 @@ if torch.cuda.is_available():
     print('GPU;')
     print('test_expected_mask')
     test_expected_mask()
-    print('test_shapes')
-    test_shapes()
     print('test_grad')
     test_grad()
     print('test_dropoutprob')

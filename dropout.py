@@ -52,9 +52,9 @@ class ContiguousDropout(nn.Module):
         
         if self.training and dropout_start is None:
             if self.p==0:
-                mode = 'zero'
+                mode = 'straight-through' 
             elif self.p==1:
-                mode = 'straight-through'
+                mode = 'zero'
             else:
                 mode = 'random'
         elif dropout_start is not None:
