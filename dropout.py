@@ -46,6 +46,7 @@ class ContiguousDropout(nn.Module):
         else:
             self.scale = get_params(p,lr = 1e-5)
 
+    # @profile
     def forward(self, input, dropout_start = None):
         n_batch,n_features = input.shape[self.batch_dim],input.shape[self.dropout_dim]
         
@@ -57,11 +58,12 @@ class ContiguousDropout(nn.Module):
             else:
                 mode = 'random'
         elif dropout_start is not None:
-            if dropout_start>=n_features:
+            if dropout_start==n_features:
                 mode = 'straight-through'
             elif dropout_start==0:
                 mode = 'zero'
-                
+            elif dropout_start>n_features:
+                raise ValueError("dropout_start ({}) greater than n_features ({})".format(dropout_start,n_features))
             else:
                 mode = 'first_n'
         else:
@@ -73,26 +75,25 @@ class ContiguousDropout(nn.Module):
             if isinstance(input,Variable):
                 linspace = Variable(linspace)
 
-            if len(input.shape)==2 and (dropout_start ==1 or dropout_start ==-1):
-                uniform = input.new(torch.Size([n_batch,1])).uniform_()
-            else:
-                n_dim = len(input.shape)
-                uniform = input.new().resize_(ones_replaced(n_dim,self.batch_dim,n_batch)).uniform_() # resized [n_batch,1] if input 2d
-                linspace.resize_(ones_replaced(n_dim,self.dropout_dim,n_features)) # resized [1,n_features] if input 2d
+            n_dim = len(input.shape)
+            uniform = input.new().resize_(ones_replaced(n_dim,self.batch_dim,n_batch)).uniform_() # resized [n_batch,1] if input 2d
+            linspace.resize_(ones_replaced(n_dim,self.dropout_dim,n_features)) # resized [1,n_features] if input 2d
             prob = self.cdf(linspace,self.scale*n_features) # self.scale*n_features faster than linspace/n_features
-            mask = prob<uniform
-            # TODO safe to input[prob>=uniform].fill_(0)?
-            return input*mask.type(type_out)      
-            
+            mask = prob<uniform         # 43% of cpu cumtime
+            mask = mask.type(type_out)  # 30% of cpu cumtime
+            return input*mask           # 23% of cpu cumtime # Note works due to broadcasting
+            # Tempting to do masked_fill
+            # but might be more memory intensive and mask is set as broadcastable with input
+            # over interesting dims but not equal sized, itself making the whole thing faster
+            # than regular dropout.
+
         if mode == 'straight-through':
             return input
         if mode == 'first_n':
             mask = torch.ones_like(input)
             mask.slice(self.dropout_dim,dropout_start).fill_(0)
-            # TODO safe to input.slice(dropout_dim,dropout_start).fill_(0) ?
             return input*mask
         if mode == 'zero':
-            # TODO safe to input.fill_(0) ?
             return input*0
 
         raise ValueError

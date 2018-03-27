@@ -39,7 +39,7 @@ def test_expected_mask():
         y_eval = dropout(x)
         y_eval2 = dropout(x, 5)
         dropout.train()
-        y_train = dropout(x, 1000)
+        y_train = dropout(x, k)
         y_train2 = dropout(x, 5)
         assert (y_eval == y_train).all()
         assert (y_eval2 == y_train2).all()
