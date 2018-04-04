@@ -11,11 +11,17 @@ def test_expected_mask():
         dropout.train()
         assert dropout(x).shape == x.shape 
         assert dropout(x, 2).shape == x.shape 
-        assert dropout(x.data).shape == x.shape # tensor
         dropout.eval()
         assert dropout(x).shape == x.shape 
         assert dropout(x, 2).shape == x.shape 
-        assert dropout(x.data).shape == x.shape # tensor
+
+        # Assert shapes/forward for Tensor
+        dropout.train()
+        assert dropout(x.data).shape == x.shape 
+        assert dropout(x.data, 2).shape == x.shape 
+        dropout.eval()
+        assert dropout(x.data).shape == x.shape 
+        assert dropout(x.data, 2).shape == x.shape 
 
         # Assert values
         dropout.train()

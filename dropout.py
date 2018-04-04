@@ -27,9 +27,15 @@ def ones_replaced(n,dim,val):
 
 class ContiguousDropout(nn.Module):
     r"""During training, randomly zeroes last n columns.
-        Half speed of linear-fused op.
         
-        Assumes dropout dimension = -1
+        Would be pytorch 0.2x backwards compatible if find neat workarounds for
+            .slice()
+            and some neat way of porting tensor/variable ops to work such as
+            variable.new()
+            
+            Note:  
+                - Tensor subset of Variable in pytorch 4.x
+                - Variable subset of Tensor in pytorch <4.
     """
     def __init__(self,p=0.5, batch_dim=0, dropout_dim = -1):
         super(ContiguousDropout, self).__init__()
@@ -71,14 +77,15 @@ class ContiguousDropout(nn.Module):
 
         if mode == 'random':
             type_out = input.type()
+
+            n_dim = len(input.shape)
             linspace = torch.arange(1, n_features+1, 1).type(type_out) # torch.linspace not cuda
             if isinstance(input,Variable):
                 linspace = Variable(linspace)
-
-            n_dim = len(input.shape)
-            uniform = input.new().resize_(ones_replaced(n_dim,self.batch_dim,n_batch)).uniform_() # resized [n_batch,1] if input 2d
             linspace.resize_(ones_replaced(n_dim,self.dropout_dim,n_features)) # resized [1,n_features] if input 2d
             prob = self.cdf(linspace,self.scale*n_features) # self.scale*n_features faster than linspace/n_features
+            
+            uniform = input.new().resize_(ones_replaced(n_dim,self.batch_dim,n_batch)).uniform_() # resized [n_batch,1] if input 2d
             mask = prob<uniform         # 43% of cpu cumtime
             mask = mask.type(type_out)  # 30% of cpu cumtime
             return input*mask           # 23% of cpu cumtime # Note works due to broadcasting
@@ -97,3 +104,4 @@ class ContiguousDropout(nn.Module):
             return input*0
 
         raise ValueError
+
