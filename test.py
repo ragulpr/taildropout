@@ -7,6 +7,8 @@ from dropout import ContiguousDropout,_legacy_slice_zerofill
 
 def test_expected_mask():
     def nd_asserter(dropout, x):
+        if torch.cuda.is_available():
+            x = x.cuda()
         # Assert shapes
         dropout.train()
         assert dropout(x).shape == x.shape 
@@ -121,7 +123,9 @@ def test_legacy_slice_zerofill():
         _legacy_slice_zerofill(mask2,dropout_dim,dropout_start)
         assert mask1.equal(mask2)
         
+print('torch version ',torch.__version__)
 if torch.__version__[:3]=='0.4':
+    print('test_legacy_slice_zerofill')
     test_legacy_slice_zerofill()
 
 print('CPU;')
@@ -132,7 +136,6 @@ test_grad()
 print('test_dropoutprob')
 test_dropoutprob()
 if torch.cuda.is_available():
-    torch.set_default_tensor_type('torch.cuda.FloatTensor')
     print('GPU;')
     print('test_expected_mask')
     test_expected_mask()

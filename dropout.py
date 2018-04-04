@@ -130,7 +130,7 @@ class ContiguousDropout(nn.Module):
         if mode == 'straight-through':
             return input
         if mode == 'first_n':
-            mask = torch.ones_like(input)
+            mask = torch.ones_like(input,requires_grad=False)
             try:
                 mask.slice(self.dropout_dim,dropout_start).fill_(0)
             except:
