@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
 
-from dropout import ContiguousDropout
+from dropout import ContiguousDropout,_legacy_slice_zerofill
 
 def test_expected_mask():
     def nd_asserter(dropout, x):
@@ -66,6 +66,10 @@ def test_expected_mask():
     nd_asserter(dropout=ContiguousDropout(1),
                 x=Variable(torch.ones(n, k)))
 
+    # Variable with grad
+    nd_asserter(dropout=ContiguousDropout(),
+                x=Variable(torch.ones(n, k),requires_grad =True))
+
 def test_grad():
     n = 2
     k = 5
@@ -100,10 +104,25 @@ def test_dropoutprob():
         for p in [0,0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,1.]:
             dropout = ContiguousDropout(p)
             y = dropout(x)
-            err = (1 - y.mean() - p).abs()
-            print(k, p, 1 - y.mean().cpu().data.numpy(), err.cpu().data.numpy())
-            assert err < epsilon, [
-                k, p, 1 - y.mean().cpu().data.numpy(), err.cpu().data.numpy()]
+            observed_p = (1 - y).mean()
+            err = (observed_p - p).abs()
+            print(k, p, observed_p.cpu().data.numpy(), err.cpu().data.numpy())
+            assert (err < epsilon).all()
+
+
+def test_legacy_slice_zerofill():
+    import torch
+    k = 100
+    mask1 = torch.randn([10,k])
+    mask2 = mask1.clone()
+    dropout_dim = 0
+    for dropout_start in range(k):
+        mask1.slice(dropout_dim,dropout_start).fill_(0)
+        _legacy_slice_zerofill(mask2,dropout_dim,dropout_start)
+        assert mask1.equal(mask2)
+        
+if torch.__version__[:3]=='0.4':
+    test_legacy_slice_zerofill()
 
 print('CPU;')
 print('test_expected_mask')

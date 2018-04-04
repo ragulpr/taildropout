@@ -25,6 +25,35 @@ def ones_replaced(n,dim,val):
     ix[dim] = val
     return ix
 
+def _legacy_slice_zerofill(mask,dropout_dim,dropout_start):
+    """ mask.slice(self.dropout_dim,dropout_start).fill_(0)
+        works for dropout_dim<7 lol
+        reason is that mask.slice() not supported in pytorch <0.4
+    """
+    if dropout_dim<-1:
+        # to support negative indexing.
+        dropout_dim = len(mask.shape)+dropout_dim
+
+    if dropout_dim == -1:
+        mask[...,dropout_start:] = 0
+    elif dropout_dim == 0:
+        mask[dropout_start:] = 0
+    elif dropout_dim == 1:
+        mask[:,dropout_start:] = 0
+    elif dropout_dim == 2:
+        mask[:,:,dropout_start:] = 0
+    elif dropout_dim == 3:
+        mask[:,:,:,dropout_start:] = 0
+    elif dropout_dim == 4:
+        mask[:,:,:,:,dropout_start:] = 0
+    elif dropout_dim == 5:
+        mask[:,:,:,:,:,dropout_start:] = 0
+    elif dropout_dim == 6:
+        mask[:,:,:,:,:,:,dropout_start:] = 0
+    else:
+        raise ValueError('Expected dropout_dim = -1 or <7 but got ',dropout_dim)
+
+
 class ContiguousDropout(nn.Module):
     r"""During training, randomly zeroes last n columns.
         
@@ -76,17 +105,21 @@ class ContiguousDropout(nn.Module):
             mode = 'straight-through'
 
         if mode == 'random':
-            type_out = input.type()
+            type_out = input.data.type() if isinstance(input,Variable) else input.type()
 
             n_dim = len(input.shape)
             linspace = torch.arange(1, n_features+1, 1).type(type_out) # torch.linspace not cuda
-            if isinstance(input,Variable):
-                linspace = Variable(linspace)
             linspace.resize_(ones_replaced(n_dim,self.dropout_dim,n_features)) # resized [1,n_features] if input 2d
             prob = self.cdf(linspace,self.scale*n_features) # self.scale*n_features faster than linspace/n_features
             
-            uniform = input.new().resize_(ones_replaced(n_dim,self.batch_dim,n_batch)).uniform_() # resized [n_batch,1] if input 2d
+            if isinstance(input,Variable):
+                uniform = input.data.new().resize_(ones_replaced(n_dim,self.batch_dim,n_batch)).uniform_() # resized [n_batch,1] if input 2d
+            else:
+                # in pytorch 0.4 variable.new() works too.
+                uniform = input.new().resize_(ones_replaced(n_dim,self.batch_dim,n_batch)).uniform_() # resized [n_batch,1] if input 2d
             mask = prob<uniform         # 43% of cpu cumtime
+            if isinstance(input,Variable):
+                mask = Variable(mask)
             mask = mask.type(type_out)  # 30% of cpu cumtime
             return input*mask           # 23% of cpu cumtime # Note works due to broadcasting
             # Tempting to do masked_fill
@@ -98,7 +131,11 @@ class ContiguousDropout(nn.Module):
             return input
         if mode == 'first_n':
             mask = torch.ones_like(input)
-            mask.slice(self.dropout_dim,dropout_start).fill_(0)
+            try:
+                mask.slice(self.dropout_dim,dropout_start).fill_(0)
+            except:
+                _legacy_slice_zerofill(mask,self.dropout_dim,dropout_start)
+
             return input*mask
         if mode == 'zero':
             return input*0
