@@ -136,7 +136,7 @@ class TailDropout(nn.Module):
         if mode == 'straight-through':
             return input
         if mode == 'first_n':
-            mask = torch.ones_like(input,requires_grad=False)
+            mask = torch.ones_like(input)
             try:
                 mask.slice(self.dropout_dim,dropout_start).fill_(0)
             except:
