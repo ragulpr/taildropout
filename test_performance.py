@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
 
-from dropout import ContiguousDropout
+from taildropout import TailDropout
 
 import argparse
 # python -m cProfile -s cumtime test_performance.py --repeats  10
@@ -68,7 +68,7 @@ for eval_mode in [False,True]:
 
             print('eval_mode ',eval_mode,' requires_grad ',requires_grad,' backward ',backward,)
             for _ in range(2):
-                for Dropout in [nn.Dropout,ContiguousDropout]:
+                for Dropout in [nn.Dropout,TailDropout]:
                     timing,secs = dropout_runner(Dropout,
                                    requires_grad = requires_grad,
                                    eval_mode = eval_mode,

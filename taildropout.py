@@ -59,10 +59,10 @@ def _legacy_slice_zerofill(mask,dropout_dim,dropout_start):
         raise ValueError('Expected dropout_dim = -1 or <7 but got ',dropout_dim)
 
 
-class ContiguousDropout(nn.Module):
+class TailDropout(nn.Module):
     r"""During training, randomly zeroes last n columns.
         
-        >> dropout = ContiguousDropout()
+        >> dropout = TailDropout()
         >> y = dropout(x)
         >> 
         >> dropout.eval()
@@ -73,7 +73,7 @@ class ContiguousDropout(nn.Module):
         >> assert y[:,10:].sum()==0
     """
     def __init__(self,p=0.5, batch_dim=0, dropout_dim = -1):
-        super(ContiguousDropout, self).__init__()
+        super(TailDropout, self).__init__()
         if p < 0 or p > 1:
             raise ValueError("dropout probability has to be between 0 and 1, "
                              "but got {}".format(p))

@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
 
-from dropout import ContiguousDropout,_legacy_slice_zerofill
+from taildropout import TailDropout,_legacy_slice_zerofill
 
 def test_expected_mask():
     def nd_asserter(dropout, x):
@@ -48,28 +48,28 @@ def test_expected_mask():
 
     n = 11
     k = 13
-    nd_asserter(dropout=ContiguousDropout(),
+    nd_asserter(dropout=TailDropout(),
                 x=Variable(torch.ones(n, k)))
-    nd_asserter(dropout=ContiguousDropout(batch_dim=1),
+    nd_asserter(dropout=TailDropout(batch_dim=1),
                 x=Variable(torch.ones(1, n, k)))
-    nd_asserter(dropout=ContiguousDropout(batch_dim=1),
+    nd_asserter(dropout=TailDropout(batch_dim=1),
                 x=Variable(torch.ones(1, n, 1, k)))
-    nd_asserter(dropout=ContiguousDropout(batch_dim=0, dropout_dim=-1),
+    nd_asserter(dropout=TailDropout(batch_dim=0, dropout_dim=-1),
                 x=Variable(torch.ones(n, 1, k)))
 
-    nd_asserter(dropout=ContiguousDropout(batch_dim=1, dropout_dim=-2),
+    nd_asserter(dropout=TailDropout(batch_dim=1, dropout_dim=-2),
                 x=Variable(torch.ones(1, n, 1, k, 1)))
-    nd_asserter(dropout=ContiguousDropout(batch_dim=1, dropout_dim=3),
+    nd_asserter(dropout=TailDropout(batch_dim=1, dropout_dim=3),
                 x=Variable(torch.ones(1, n, 1, k, 1)))
 
     # Test 0/1 probability
-    nd_asserter(dropout=ContiguousDropout(0),
+    nd_asserter(dropout=TailDropout(0),
                 x=Variable(torch.ones(n, k)))
-    nd_asserter(dropout=ContiguousDropout(1),
+    nd_asserter(dropout=TailDropout(1),
                 x=Variable(torch.ones(n, k)))
 
     # Variable with grad
-    nd_asserter(dropout=ContiguousDropout(),
+    nd_asserter(dropout=TailDropout(),
                 x=Variable(torch.ones(n, k),requires_grad =True))
 
 def test_grad():
@@ -77,10 +77,10 @@ def test_grad():
     k = 5
     x = Variable(torch.ones(n, 1, 2, 3, k), requires_grad=True)
 
-    for dropout in [ContiguousDropout(),
-                    ContiguousDropout(0),
-                    ContiguousDropout(1),
-                    ContiguousDropout(dropout_dim=4)]:
+    for dropout in [TailDropout(),
+                    TailDropout(0),
+                    TailDropout(1),
+                    TailDropout(dropout_dim=4)]:
         # Deterministic
         y = dropout(x, 2)
         y.sum().backward()
@@ -104,7 +104,7 @@ def test_dropoutprob():
         x = Variable(torch.ones(n, k))
 
         for p in [0,0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,1.]:
-            dropout = ContiguousDropout(p)
+            dropout = TailDropout(p)
             y = dropout(x)
             observed_p = (1 - y).mean()
             err = (observed_p - p).abs()
