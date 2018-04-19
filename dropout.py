@@ -26,9 +26,14 @@ def ones_replaced(n,dim,val):
     return ix
 
 def _legacy_slice_zerofill(mask,dropout_dim,dropout_start):
-    """ mask.slice(self.dropout_dim,dropout_start).fill_(0)
-        works for dropout_dim<7 lol
-        reason is that mask.slice() not supported in pytorch <0.4
+    """ Helper for pytorch 0.2x, 0.3x compatibility
+        
+        It literally does:
+        `mask.slice(self.dropout_dim,dropout_start).fill_(0)`
+
+        for dropout_dim<7 lol
+
+        `.slice()` is not supported in pytorch <0.4
     """
     if dropout_dim<-1:
         # to support negative indexing.
@@ -57,14 +62,15 @@ def _legacy_slice_zerofill(mask,dropout_dim,dropout_start):
 class ContiguousDropout(nn.Module):
     r"""During training, randomly zeroes last n columns.
         
-        Would be pytorch 0.2x backwards compatible if find neat workarounds for
-            .slice()
-            and some neat way of porting tensor/variable ops to work such as
-            variable.new()
-            
-            Note:  
-                - Tensor subset of Variable in pytorch 4.x
-                - Variable subset of Tensor in pytorch <4.
+        >> dropout = ContiguousDropout()
+        >> y = dropout(x)
+        >> 
+        >> dropout.eval()
+        >> y = dropout(x)
+        >> assert y.equal(x)
+        >> 
+        >> y = dropout(x,dropout_start = 10)
+        >> assert y[:,10:].sum()==0
     """
     def __init__(self,p=0.5, batch_dim=0, dropout_dim = -1):
         super(ContiguousDropout, self).__init__()
