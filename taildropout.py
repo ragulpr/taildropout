@@ -10,7 +10,7 @@ def get_params(p=0.5, lr=1e-5):
     """
     p = 1 - p  # Probability of dropout i.e prob. of zero
     from math import exp
-    G = lambda a: a - a * exp(-1 / a)
+    G = lambda a: a - a * exp(-1 / a) # int_0^1 S(x) dx
     a = 0
     err = 2.
     while a < 20:
