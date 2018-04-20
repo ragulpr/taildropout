@@ -97,8 +97,8 @@ class TailDropout(nn.Module):
             self.scale = get_params(p, lr=1e-5)
 
     def forward(self, input, dropout_start=None):
-        n_batch, n_features = input.shape[
-            self.batch_dim], input.shape[self.dropout_dim]
+        n_batch = input.shape[self.batch_dim]
+        n_features = input.shape[self.dropout_dim]
 
         if self.training and dropout_start is None:
             if self.p == 0:
