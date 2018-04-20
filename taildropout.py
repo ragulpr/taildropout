@@ -10,7 +10,7 @@ def get_params(p=0.5, lr=1e-5):
     """
     p = 1 - p  # Probability of dropout i.e prob. of zero
     from math import exp
-    G = lambda a: a - a * exp(-1 / a) # int_0^1 S(x) dx
+    G = lambda a: a - a * exp(-1 / a)  # int_0^1 S(x) dx
     a = 0
     err = 2.
     while a < 20:
@@ -37,9 +37,9 @@ def _legacy_slice_zerofill(mask, dropout_dim, dropout_start):
 
         In pytorch 0.4 we'd do:
         `mask.slice(dropout_dim,dropout_start).fill_(0)`
-        
+
         But in pytorch 0.2 we do a dirty trick for dropout_dim<7 lol
-        
+
     """
     if dropout_dim < -1:
         # to support negative indexing.
@@ -144,12 +144,11 @@ class TailDropout(nn.Module):
             mask = prob < uniform         # 43% of cpu cumtime
             if isinstance(input, Variable):
                 mask = Variable(mask)
-            mask = mask.type(type_out)  # 30% of cpu cumtime
+            mask = mask.type(type_out)    # 30% of cpu cumtime
             return input * mask           # 23% of cpu cumtime # Note works due to broadcasting
             # Tempting to do masked_fill
-            # but might be more memory intensive and mask is set as broadcastable with input
-            # over interesting dims but not equal sized, itself making the whole thing faster
-            # than regular dropout.
+            # But API unstable over cuda/cpu/pytorch 0.3/pytorch 0.4 
+            # and probably be more memory costly.
 
         if mode == 'straight-through':
             return input
