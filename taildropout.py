@@ -148,3 +148,6 @@ class TailDropout(nn.Module):
 
         raise ValueError
 
+    def __repr__(self):
+        return self.__class__.__name__ +\
+            '(p=' + str(self.p) +', batch_dim='+str(self.batch_dim)+', dropout_dim='+str(self.dropout_dim)+ ')'
