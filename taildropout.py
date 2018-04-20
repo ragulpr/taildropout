@@ -100,14 +100,17 @@ class TailDropout(nn.Module):
         n_batch = input.shape[self.batch_dim]
         n_features = input.shape[self.dropout_dim]
 
-        if self.training and dropout_start is None:
-            if self.p == 0:
-                mode = 'straight-through'
-            elif self.p == 1:
-                mode = 'zero'
+        if dropout_start is None:
+            if self.training:
+                if self.p == 0:
+                    mode = 'straight-through'
+                elif self.p == 1:
+                    mode = 'zero'
+                else:
+                    mode = 'random'
             else:
-                mode = 'random'
-        elif dropout_start is not None:
+                mode = 'straight-through'
+        else:
             if dropout_start == n_features:
                 mode = 'straight-through'
             elif dropout_start == 0:
@@ -117,8 +120,6 @@ class TailDropout(nn.Module):
                     dropout_start, n_features))
             else:
                 mode = 'first_n'
-        else:
-            mode = 'straight-through'
 
         if mode == 'random':
             type_out = input.data.type() if isinstance(input, Variable) else input.type()
