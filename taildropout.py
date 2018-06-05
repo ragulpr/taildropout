@@ -6,21 +6,28 @@ import torch.nn.functional as F
 
 def get_params(p=0.5, lr=1e-5):
     """ Numerically solve integral equation int_0^1 S(x) dx = p
-        with S survival function for exponential distribution
+        with S survival function for exponential distribution.
+        
+        This is a very naive way of calculating it.
     """
     p = 1 - p  # Probability of dropout i.e prob. of zero
     from math import exp
     G = lambda a: a - a * exp(-1 / a)  # int_0^1 S(x) dx
+    e = torch.ones(1).exp().item()
+    
+    if (1-p)<0.01:
+        lr = 1. # Since too slow otherwise.
+
     a = 0
     err = 2.
-    while a < 20:
+    # *Extremely* naive stepwise search from 0,0+lr,...
+    while a < 100000:
         a = a + lr
         err_last = err
         err = (G(a) - p)**2
         if err > err_last:
             break
     return a
-
 
 def ones_replaced(n, dim, val):
     """ List of n-1 ones and `val` at `dim`'th position.
@@ -86,10 +93,14 @@ class TailDropout(nn.Module):
             raise ValueError("dropout probability has to be between 0 and 1, "
                              "but got {}".format(p))
 
-        self.cdf = lambda x, scale: 1 - \
-            torch.exp(-x / scale)  # expo distribution
         self.batch_dim = batch_dim
         self.dropout_dim = dropout_dim
+
+        self.cdf = lambda x, scale: 1 - \
+            torch.exp(-x / scale)  # expo distribution
+        self.set_p(p)
+
+    def set_p(self,p):
         self.p = p
         if p == 0 or p == 1:
             self.scale = None

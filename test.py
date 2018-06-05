@@ -103,12 +103,12 @@ def test_dropoutprob():
             epsilon = 5e-2
         x = Variable(torch.ones(n, k))
 
-        for p in [0,0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,1.]:
+        for p in [0,0.0001,0.001, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,1.]:
             dropout = TailDropout(p)
             y = dropout(x)
             observed_p = (1 - y).mean()
             err = (observed_p - p).abs()
-            print(k, p, observed_p.cpu().data.numpy(), err.cpu().data.numpy())
+            print(k,'\t', p,'\t', observed_p.cpu().data.numpy(),'\t', err.cpu().data.numpy())
             assert (err < epsilon).all()
 
 
