@@ -61,17 +61,17 @@ def dropout_runner(Dropout,
 
 
 for eval_mode in [False,True]:
-    for requires_grad in [False,True]:
-        for backward in [False,True]:
+    for requires_grad in [True,False]:
+        for backward in [True,False]:
             if backward and not requires_grad:
                 break
 
-            print('eval_mode ',eval_mode,' requires_grad ',requires_grad,' backward ',backward,)
+            print('eval_mode:',eval_mode,'\t equires_grad: ',requires_grad,'\t backward: ',backward,)
             for _ in range(2):
                 for Dropout in [nn.Dropout,TailDropout]:
                     timing,secs = dropout_runner(Dropout,
                                    requires_grad = requires_grad,
                                    eval_mode = eval_mode,
                                    backward = backward)
-                    print(timing,'(',secs,'s total)',Dropout.__name__)
+                    print(timing,'\t(',secs,'\t s total)\t',Dropout.__name__)
 print('FINISH')
