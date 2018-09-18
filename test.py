@@ -124,7 +124,7 @@ def test_legacy_slice_zerofill():
         assert mask1.equal(mask2)
         
 print('torch version ',torch.__version__)
-if torch.__version__[:3]=='0.4':
+if torch.__version__[:3]<'0.4':
     print('test_legacy_slice_zerofill')
     test_legacy_slice_zerofill()
 

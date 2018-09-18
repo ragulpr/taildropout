@@ -42,7 +42,7 @@ def _legacy_slice_zerofill(mask, dropout_dim, dropout_start):
 
         `.slice()` is not supported in pytorch <0.4
 
-        In pytorch 0.4 we'd do:
+        In pytorch 0.4x we'd do:
         `mask.slice(dropout_dim,dropout_start).fill_(0)`
 
         But in pytorch 0.2 we do a dirty trick for dropout_dim<7 lol
