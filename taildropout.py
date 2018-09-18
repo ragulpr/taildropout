@@ -13,7 +13,6 @@ def get_params(p=0.5, lr=1e-5):
     p = 1 - p  # Probability of dropout i.e prob. of zero
     from math import exp
     G = lambda a: a - a * exp(-1 / a)  # int_0^1 S(x) dx
-    e = torch.ones(1).exp().item()
     
     if (1-p)<0.01:
         lr = 1. # Since too slow otherwise.
