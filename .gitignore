@@ -1,9 +1,19 @@
-\.ipynb_checkpoints/
+.DS_Store
+.cache
+*.csv
+*.history
+*.ipynb_checkpoints
+python/build/
+python/dist/
+*.egg-info/
+*.eggs/
+\.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+.*.swp
+.idea
 
-sardinery\.egg-info/
+# virtualenv
+python/venv*/
 
-sardinery/__pycache__/
-
-tests/__pycache__/
-
-\.cache/v/cache/
