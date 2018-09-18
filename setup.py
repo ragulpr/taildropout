@@ -1,5 +1,14 @@
-#nsml: gasop99/pytorch:0.1
-# Setup file for pytorch 4.* 
-from distutils.core import setup
+import sys
+from setuptools import setup
 
-setup(name='', version='0.1', install_requires=['numpy','pillow','torchvision'])
+setup(
+    name = "taildropout",        
+    version = '0.0.1',
+    packages=[],
+    dependency_links = [],
+    install_requires=[],
+    package_data = {},
+    author="Egil Martinsson",
+    author_email = "egil.martinsson@navercorp.com",
+    description = "",    
+)
