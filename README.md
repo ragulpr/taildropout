@@ -1,6 +1,6 @@
 # TailDropout
 
-Check out `test.py` and `test_performance.py` to get an idea how to use it.
+Check out [examply.ipynb](examply.ipynb) or `test.py` and `test_performance.py` to get an idea how to use it.
 
 
 ```
@@ -13,9 +13,8 @@ dropout is now an `nn.Module` that works just like `nn.Dropout`, applied to a te
 
 More description to come
 
-
 #### Citation
-
+```
 @misc{Martinsson2018,
   author = {Egil Martinsson},
   title = {TailDropout},
@@ -25,3 +24,4 @@ More description to come
   howpublished = {\url{https://github.com/naver/taildropout}},
   commit = {master}
 }
+```
