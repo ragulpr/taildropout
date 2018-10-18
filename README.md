@@ -2,9 +2,13 @@
 
 Check out [examply.ipynb](examply.ipynb) or `test.py` and `test_performance.py` to get an idea how to use it.
 
+## Choose k=1,...
 ![](./_figs/taildropout.gif)
+## While training, randomly sample k
 ![](./_figs/taildropout_random.gif)
+## Regular dropout chooses random subsets
 ![](./_figs/dropout.gif)
+## Ex AutoEncoder; Sequential compression.
 ![](./_figs/ae.gif)
 
 ```
