@@ -3,6 +3,9 @@
 Check out [examply.ipynb](examply.ipynb) or `test.py` and `test_performance.py` to get an idea how to use it.
 
 ![](./_figs/taildropout.gif)
+![](./_figs/taildropout_random.gif)
+![](./_figs/dropout.gif)
+![](./_figs/ae.gif)
 
 ```
 from taildropout import TailDropout
