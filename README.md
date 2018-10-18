@@ -1,6 +1,6 @@
 # TailDropout
 
-Check out [example.ipynb](examply.ipynb) or `test.py` and `test_performance.py` to get an idea how to use it.
+Check out [example.ipynb](example.ipynb) or `test.py` and `test_performance.py` to get an idea how to use it.
 
 ## Choose k=1,...
 ![](./_figs/taildropout.gif)
