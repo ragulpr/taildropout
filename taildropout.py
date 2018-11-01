@@ -28,12 +28,17 @@ def get_params(p=0.5, lr=1e-5):
             break
     return a
 
-def ones_replaced(n, dim, val):
-    """ List of n ones and `val` at `dim`'th position.
-    """
-    ix = [1 for _ in range(n)]
-    ix[dim] = val
-    return ix
+
+def replace_w_ones_except(shape, dims):
+    # List like `shape` with ones everywhere except at `dims`.
+    newshape = [1 for _ in range(len(shape))]
+    try:
+        newshape[dims] = shape[dims]
+    except:
+        # dims iterable
+        for j in dims:
+            newshape[j] = shape[j]
+    return newshape
 
 
 def _legacy_slice_zerofill(mask, dropout_dim, dropout_start):
@@ -92,6 +97,16 @@ class TailDropout(nn.Module):
             raise ValueError("dropout probability has to be between 0 and 1, "
                              "but got {}".format(p))
 
+        is_overlap = False
+        try:
+            is_overlap = dropout_dim in batch_dim
+        except:
+            is_overlap = dropout_dim == batch_dim
+
+        if is_overlap:
+            raise ValueError(
+                "batch_dim ({}) and dropout_dim {} can't overlap".format(batch_dim, batch_dim))
+
         self.batch_dim = batch_dim
         self.dropout_dim = dropout_dim
 
@@ -107,7 +122,6 @@ class TailDropout(nn.Module):
             self.scale = get_params(p, lr=1e-5)
 
     def forward(self, input, dropout_start=None):
-        n_batch = input.shape[self.batch_dim]
         n_features = input.shape[self.dropout_dim]
 
         if dropout_start is None:
@@ -137,21 +151,19 @@ class TailDropout(nn.Module):
             n_dim = len(input.shape)
             # No cuda torch.linspace for old versions of pytorch.
             linspace = torch.arange(1, n_features + 1, 1).type(type_out)
-            # resized [1,n_features] if input 2d
-            linspace.resize_(ones_replaced(
-                n_dim, self.dropout_dim, n_features))
+            # resized [1,n_features] if input 2d, [1,1,..,n_features] if nd
+            newshape = replace_w_ones_except(input.shape, self.dropout_dim)
+            linspace.resize_(newshape)
             # self.scale*n_features faster than linspace/n_features
             prob = self.cdf(linspace, self.scale * n_features)
 
+            # make [n_batch,1] noise if input 2d
+            newshape = replace_w_ones_except(input.shape, self.batch_dim)
             if isinstance(input, Variable):
-                # resized [n_batch,1] if input 2d
-                uniform = input.data.new().resize_(
-                    ones_replaced(n_dim, self.batch_dim, n_batch)).uniform_()
+                uniform = input.data.new().resize_(newshape).uniform_()
             else:
-                # in pytorch 0.4 variable.new() works too.
-                # resized [n_batch,1] if input 2d
-                uniform = input.new().resize_(
-                    ones_replaced(n_dim, self.batch_dim, n_batch)).uniform_()
+                # in pytorch >0.4 variable.new() works too.
+                uniform = input.new().resize_(newshape).uniform_()
             mask = prob < uniform         # 43% of cpu cumtime
             if isinstance(input, Variable):
                 mask = Variable(mask)
