@@ -7,15 +7,15 @@ import torch.nn.functional as F
 def get_params(p=0.5, lr=1e-5):
     """ Numerically solve integral equation int_0^1 S(x) dx = p
         with S survival function for exponential distribution.
-        
+
         This is a very naive way of calculating it.
     """
     p = 1 - p  # Probability of dropout i.e prob. of zero
     from math import exp
     G = lambda a: a - a * exp(-1 / a)  # int_0^1 S(x) dx
-    
-    if (1-p)<0.01:
-        lr = 1. # Since too slow otherwise.
+
+    if (1 - p) < 0.01:
+        lr = 1.  # Since too slow otherwise.
 
     a = 0
     err = 2.
@@ -73,7 +73,7 @@ def _legacy_slice_zerofill(mask, dropout_dim, dropout_start):
 
 
 class TailDropout(nn.Module):
-    r"""During training, randomly zeroes last n columns.
+    r"""During training, randomly zeroes last n-k columns.
 
         >> dropout = TailDropout()
         >> y = dropout(x)
@@ -96,10 +96,10 @@ class TailDropout(nn.Module):
         self.dropout_dim = dropout_dim
 
         # exponential distribution
-        self.cdf = lambda x, scale: 1 - torch.exp(-x / scale)  
+        self.cdf = lambda x, scale: 1 - torch.exp(-x / scale)
         self.set_p(p)
 
-    def set_p(self,p):
+    def set_p(self, p):
         self.p = p
         if p == 0 or p == 1:
             self.scale = None
@@ -158,7 +158,7 @@ class TailDropout(nn.Module):
             mask = mask.type(type_out)    # 30% of cpu cumtime
             return input * mask           # 23% of cpu cumtime # Note works due to broadcasting
             # Tempting to do masked_fill
-            # But API unstable over cuda/cpu/pytorch 0.3/pytorch 0.4 
+            # But API unstable over cuda/cpu/pytorch 0.3/pytorch 0.4
             # and probably be more memory costly.
 
         if mode == 'straight-through':
