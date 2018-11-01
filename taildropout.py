@@ -29,7 +29,7 @@ def get_params(p=0.5, lr=1e-5):
     return a
 
 def ones_replaced(n, dim, val):
-    """ List of n-1 ones and `val` at `dim`'th position.
+    """ List of n ones and `val` at `dim`'th position.
     """
     ix = [1 for _ in range(n)]
     ix[dim] = val
@@ -95,8 +95,8 @@ class TailDropout(nn.Module):
         self.batch_dim = batch_dim
         self.dropout_dim = dropout_dim
 
-        self.cdf = lambda x, scale: 1 - \
-            torch.exp(-x / scale)  # expo distribution
+        # exponential distribution
+        self.cdf = lambda x, scale: 1 - torch.exp(-x / scale)  
         self.set_p(p)
 
     def set_p(self,p):
@@ -135,7 +135,7 @@ class TailDropout(nn.Module):
             type_out = input.data.type() if isinstance(input, Variable) else input.type()
 
             n_dim = len(input.shape)
-            # torch.linspace not cuda
+            # No cuda torch.linspace for old versions of pytorch.
             linspace = torch.arange(1, n_features + 1, 1).type(type_out)
             # resized [1,n_features] if input 2d
             linspace.resize_(ones_replaced(
