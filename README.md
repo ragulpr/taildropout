@@ -18,7 +18,7 @@ If `W` is some weights, then the SVD compression (same as PCA) is
 
 ```
 U,s,V = torch.svd(W)
-W == U.mm(s.diag()).mm(V.t()) # ~True w.r.t 
+W == U.mm(s.diag()).mm(V.t()) # ~True in theory
 ```
 
 With `s` the eigenvalues of `W`. Due to [Linear Algebra](https://en.wikipedia.org/wiki/Singular_value_decomposition) `s[2:]==0` will always hold.  
