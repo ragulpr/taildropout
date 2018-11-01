@@ -13,8 +13,21 @@ Each **k first** directions must map input to target as good as possible.
 Each **subset of directions** learns to map input to targets as good as possible.
 ![](./_figs/dropout.gif)
 
+### Comparison to PCA
+If `W` is some weights, then the SVD compression (same as PCA) is
+
+```
+U,s,V = torch.svd(W)
+W == U.mm(s.diag()).mm(V.t()) # ~True w.r.t 
+```
+
+With `s` the eigenvalues of `W`. Due to [Linear Algebra](https://en.wikipedia.org/wiki/Singular_value_decomposition) `s[2:]==0` will always hold.  
+![](./_figs/svd.gif)
+
+Note that SVD compresses `W` optimally w.r.t the Euclidian norm, but you want to compress each layer w.r.t the final loss function and lots of non-linearities in between.
+
 ### Example AutoEncoder; Sequential compression.
-When using TailDropout, `k` has a qualitative meaning:
+When using TailDropout on the embedding layer, `k` has a qualitative meaning:
 
 ![](./_figs/ae.gif)
 
