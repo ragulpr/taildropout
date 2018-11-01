@@ -58,23 +58,23 @@ def test_expected_mask():
     test_routes(dropout=TailDropout(), input_shape=(n, k))
     test_routes(dropout=TailDropout(batch_dim=1), input_shape=(1, n, k))
     test_routes(dropout=TailDropout(batch_dim=1), input_shape=(1, n, 1, k))
-    test_routes(dropout=TailDropout(batch_dim=0, dropout_dim=-1), input_shape=(n, 1, k))
-    test_routes(dropout=TailDropout(batch_dim=1, dropout_dim=-2), input_shape=(1, n, 1, k, 1))
-    test_routes(dropout=TailDropout(batch_dim=1, dropout_dim=3), input_shape=(1, n, 1, k, 1))
-    test_routes(dropout=TailDropout(batch_dim=1), input_shape=(1, n, k))
+    test_routes(dropout=TailDropout(batch_dim=0, dropout_dim=-1), input_shape=(n, 1, k))  # noqa
+    test_routes(dropout=TailDropout(batch_dim=1, dropout_dim=-2), input_shape=(1, n, 1, k, 1))  # noqa
+    test_routes(dropout=TailDropout(batch_dim=1, dropout_dim=3), input_shape=(1, n, 1, k, 1))  # noqa
+    test_routes(dropout=TailDropout(batch_dim=1), input_shape=(1, n, k))  # noqa
 
-    test_values_dd_last(dropout=TailDropout(), input_shape=(n, k))
-    test_values_dd_last(dropout=TailDropout(), input_shape=(n, 1, k))
-    test_values_dd_last(dropout=TailDropout(), input_shape=(n, n, k))
+    test_values_dd_last(dropout=TailDropout(), input_shape=(n, k))  # noqa
+    test_values_dd_last(dropout=TailDropout(), input_shape=(n, 1, k))  # noqa
+    test_values_dd_last(dropout=TailDropout(), input_shape=(n, n, k))  # noqa
 
-    test_values_dd_last(dropout=TailDropout(dropout_dim = 1), input_shape=(n, k))
-    test_values_dd_last(dropout=TailDropout(dropout_dim = 2), input_shape=(n, 1, k))
-    test_values_dd_last(dropout=TailDropout(dropout_dim = 2), input_shape=(n, n, k))
+    test_values_dd_last(dropout=TailDropout(dropout_dim=1), input_shape=(n, k))
+    test_values_dd_last(dropout=TailDropout(dropout_dim=2), input_shape=(n, 1, k))  # noqa
+    test_values_dd_last(dropout=TailDropout(dropout_dim=2), input_shape=(n, n, k))  # noqa
 
-    test_values_dd_last(dropout=TailDropout(batch_dim = 1), input_shape=(n, 1, k))
-    test_values_dd_last(dropout=TailDropout(batch_dim = 1), input_shape=(n, n, k))
-    test_values_dd_last(dropout=TailDropout(batch_dim = [0,1]), input_shape=(n, n, k))
-    test_values_dd_last(dropout=TailDropout(batch_dim = [1,0]), input_shape=(n, n, k))
+    test_values_dd_last(dropout=TailDropout(batch_dim=1), input_shape=(n, 1, k))  # noqa
+    test_values_dd_last(dropout=TailDropout(batch_dim=1), input_shape=(n, n, k))  # noqa
+    test_values_dd_last(dropout=TailDropout(batch_dim=[0, 1]), input_shape=(n, n, k))  # noqa
+    test_values_dd_last(dropout=TailDropout(batch_dim=[1, 0]), input_shape=(n, n, k))  # noqa
 
     # Test 0/1 probability
     test_routes(dropout=TailDropout(0), input_shape=(n, k))
@@ -84,19 +84,18 @@ def test_expected_mask():
     test_routes(dropout=TailDropout(), input_shape=(n, k), requires_grad=True)
 
 
-
 def test_multiple_batch_dim():
-    x = torch.ones(100,100,10)
+    x = torch.ones(100, 100, 10)
     if torch.cuda.is_available():
         x = x.cuda()
-    
-    y = TailDropout(batch_dim = 0)(x).sum(-1).sum(0)
-    # Mask[i,a] == Mask[i,b] for all i, a, b
-    assert all((y==y[0]))
 
-    y = TailDropout(batch_dim = [0,1])(x).sum(-1).sum(0)
+    y = TailDropout(batch_dim=0)(x).sum(-1).sum(0)
+    # Mask[i,a] == Mask[i,b] for all i, a, b
+    assert all((y == y[0]))
+
+    y = TailDropout(batch_dim=[0, 1])(x).sum(-1).sum(0)
     # Mask[i,a] probably different from Mask[i,b] for some i, a, b
-    assert not all((y==y[0]))
+    assert not all((y == y[0]))
 
 
 def test_grad():
@@ -128,11 +127,11 @@ def test_dropoutprob():
         epsilon = 2e-2
         if k == 10:
             epsilon = 5e-2
-        x = Variable(torch.ones(n,2, k))
+        x = Variable(torch.ones(n, 2, k))
 
         print('K', '\t', 'p', '\t', 'observed_p', '\t', 'err')
         for p in [0, 0.0001, 0.001, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]:
-            dropout = TailDropout(p,batch_dim = [0,1])
+            dropout = TailDropout(p, batch_dim=[0, 1])
             y = dropout(x)
             observed_p = (1 - y).mean()
             err = (observed_p - p).abs()
