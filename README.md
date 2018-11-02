@@ -9,18 +9,21 @@ At each layer, a scalar input *feature* `x[j]` of an input feature vector `x` de
 ### While training, randomly sample k
 Teach each **k first** directions to map input to target as good as possible.
 ![](./_figs/taildropout_random.gif)
+The `k`'th direction is more often included than the `k+1`'th.
 ### Compare to regular dropout
 Teach each **subset of directions** to map input to targets as good as possible.
 ![](./_figs/dropout.gif)
+Each direction has same inclusion probability.
 
 ### Comparison to PCA
 If `W` is some weights, then the SVD compression (same as PCA) is
 
 ```
+W = torch.randn(2,10)
 U,s,V = torch.svd(W)
 W == U.mm(s.diag()).mm(V.t()) # ~True in theory
 ```
-With `s` the eigenvalues of `W`. To use `k` *factors/components/eigenvectors* to represent `W`, set `s[k:]=0`. Due to [Linear Algebra](https://en.wikipedia.org/wiki/Singular_value_decomposition) `s[2:]==0` would allready be the case for example below. 
+With `s` the eigenvalues of `W`. To use `k` *factors/components/eigenvectors* to represent `W`, set `s[k:]=0`. Due to [Linear Algebra](https://en.wikipedia.org/wiki/Singular_value_decomposition), `s[2:]==0` would already be the case for example below. 
 
 ![](./_figs/svd.gif)
 
@@ -30,6 +33,8 @@ Note that SVD compresses `W` optimally w.r.t the Euclidian norm `||W - U[:,:k] d
 When using TailDropout on the embedding layer, `k` has a qualitative meaning:
 
 ![](./_figs/ae.gif)
+
+Here even with `k=1` the resulting 1d-scalar embedding apparently separates shoes and shirts. 
 
 ## Usage
 TailDropout is an `nn.Module` that works just like `nn.Dropout`, applied to a tensor `x`: 
@@ -48,7 +53,7 @@ for i in range(n_batch):
     k = ~Exponential(L)
     x[i,k:] = 0 
 ```
-Note, the actual implementation is **much** faster, vectorized and pytorch 0.2x, 0.3x,0.4x,1x GPU compatible. For Pytorch <0.4.1 it yields a significant speedup over regular dropout.
+Note, the actual implementation is **much** faster, vectorized and made to be pytorch 0.2x, 0.3x, 0.4x, 1x GPU compatible. Tested for Pytorch <0.4.1 it yielded a significant speedup over regular dropout.
 
 ## Details
 #### Training vs Inference
