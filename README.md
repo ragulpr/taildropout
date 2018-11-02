@@ -20,7 +20,7 @@ If `W` is some weights, then the SVD compression (same as PCA) is
 U,s,V = torch.svd(W)
 W == U.mm(s.diag()).mm(V.t()) # ~True in theory
 ```
-With `s` the eigenvalues of `W`. To use `k` *factors* to represent `w` set `s[k:]=0`. Due to [Linear Algebra](https://en.wikipedia.org/wiki/Singular_value_decomposition) `s[2:]==0` would allready be the case for example below. 
+With `s` the eigenvalues of `W`. To use `k` *factors/components/eigenvectors* to represent `w` set `s[k:]=0`. Due to [Linear Algebra](https://en.wikipedia.org/wiki/Singular_value_decomposition) `s[2:]==0` would allready be the case for example below. 
 
 ![](./_figs/svd.gif)
 
@@ -100,8 +100,8 @@ layer = nn.Sequential(
 ```
 
 ##### Compression/regularization ratio is very large!
-If you don't care much about regularization, dropout probability in order 1e-2 
-seems to give good compression effect. I typically use `TailDropout(p=0.1)`. 
+If you don't care much about regularization, dropout probability in order 1e-2 still 
+seems to give good compression effect. I typically use `TailDropout(p=0.1)` to get both. 
 
 #### Citation
 ```
