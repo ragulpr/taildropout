@@ -30,7 +30,8 @@ With `s` the eigenvalues of `W`. To use `k` *factors/components/eigenvectors* to
 
 ![](./_figs/svd.gif)
 
-Due to [Linear Algebra](https://en.wikipedia.org/wiki/Singular_value_decomposition), `s[2:]==0` would already be the case for example below. 
+ <sub>Due to [Linear Algebra](https://en.wikipedia.org/wiki/Singular_value_decomposition), `s[2:]==0` would already be the case in example above. 
+</sub>
 
 Note that SVD compresses `W` optimally w.r.t the Euclidian norm `||W - U[:,:k] diag(s[:k]) V[:,:k]'||` for every `k`, but you want to compress each layer w.r.t the final loss function and lots of non-linearities in between!
 
