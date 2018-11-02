@@ -10,7 +10,7 @@ At each layer, a scalar input *feature* `x[j]` of an input feature vector `x` de
 Teach each **k first** directions to map input to target as good as possible.
 ![](./_figs/taildropout_random.gif)
 
-The `k`th direction is more often included than the `k+1`th.
+Each direction has decreasing probability of being used.
 
 ### Compare to regular dropout
 Teach each **subset of directions** to map input to targets as good as possible.
