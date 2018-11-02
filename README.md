@@ -54,10 +54,11 @@ Note, the actual implementation is **much** faster, vectorized and pytorch 0.2x,
 "Recurrent dropout" == Keep mask constant over time. Popular approach.
 ```
 x = torch.randn(n_timesteps,n_sequences,n_features)
-taildropout = TailDropout(batch_dim = 1, dropout_dim = 3)
 
 gru = nn.GRU(n_features,n_features)
-_,x = gru(x)
+taildropout = TailDropout(batch_dim = 1, dropout_dim = 3)
+
+x, _ = gru(x)
 x = taildropout(x)
 ```
 
@@ -65,9 +66,10 @@ x = taildropout(x)
 "2d Dropout" == Keep mask constant over spatial dimension. Popular approach.
 ```
 x = torch.randn(n_batch,n_features,n_pixels_x,n_pixels_y)
-taildropout = TailDropout(batch_dim = [0,1], dropout_dim = 3)
 
+taildropout = TailDropout(batch_dim = [0,1], dropout_dim = 3)
 cnn = nn.Conv2d(n_features,n_features, kernel_size)
+
 x = cnn(x)
 x = taildropout(x)
 ```
