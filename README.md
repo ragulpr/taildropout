@@ -26,7 +26,7 @@ W = torch.randn(2,10)
 U,s,V = torch.svd(W)
 W == U.mm(s.diag()).mm(V.t()) # ~True in theory
 ```
-With `s` the eigenvalues of `W`. To use `k` *factors/components/eigenvectors* to represent `W`, set `s[k:]=0`. 
+With `s` the eigenvalues of `W`. To use the `k` first *factors/components/eigenvectors* to represent `W`, set `s[k:]=0`. 
 
 ![](./_figs/svd.gif)
 
