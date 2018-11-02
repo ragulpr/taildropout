@@ -56,10 +56,14 @@ Note, the actual implementation is **much** faster, vectorized and pytorch 0.2x,
 x = torch.randn(n_timesteps,n_sequences,n_features)
 
 gru = nn.GRU(n_features,n_features)
-taildropout = TailDropout(batch_dim = 1, dropout_dim = 3)
+taildropout = TailDropout(batch_dim = 1, dropout_dim = 2)
 
 x, _ = gru(x)
 x = taildropout(x)
+```
+If you want to have mask vary for each timestep and sequence
+```
+taildropout = TailDropout(batch_dim = [0,1], dropout_dim = 2)
 ```
 
 #### Images
@@ -67,8 +71,8 @@ x = taildropout(x)
 ```
 x = torch.randn(n_batch,n_features,n_pixels_x,n_pixels_y)
 
-taildropout = TailDropout(batch_dim = [0,1], dropout_dim = 3)
 cnn = nn.Conv2d(n_features,n_features, kernel_size)
+taildropout = TailDropout(batch_dim = 0, dropout_dim = 1)
 
 x = cnn(x)
 x = taildropout(x)
