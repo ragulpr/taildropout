@@ -9,10 +9,13 @@ At each layer, a scalar input *feature* `x[j]` of an input feature vector `x` de
 ### While training, randomly sample k
 Teach each **k first** directions to map input to target as good as possible.
 ![](./_figs/taildropout_random.gif)
-The `k`'th direction is more often included than the `k+1`'th.
+
+The `k`th direction is more often included than the `k+1`th.
+
 ### Compare to regular dropout
 Teach each **subset of directions** to map input to targets as good as possible.
 ![](./_figs/dropout.gif)
+
 Each direction has same inclusion probability.
 
 ### Comparison to PCA
