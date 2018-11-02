@@ -7,10 +7,10 @@ At each layer, for an input feature vector `x`, an input *feature* `x[j]` decide
 
 ![](./_figs/taildropout.gif)
 ### While training, randomly sample k
-Each **k first** directions must map input to target as good as possible.
+Teach each **k first** directions to map input to target as good as possible.
 ![](./_figs/taildropout_random.gif)
 ### Compare to regular dropout
-Each **subset of directions** learns to map input to targets as good as possible.
+Teach each **subset of directions** to map input to targets as good as possible.
 ![](./_figs/dropout.gif)
 
 ### Comparison to PCA
@@ -24,7 +24,7 @@ With `s` the eigenvalues of `W`. To use `k` *factors/components/eigenvectors* to
 
 ![](./_figs/svd.gif)
 
-Note that SVD compresses `W` optimally w.r.t the Euclidian norm `||W - U[:,:k] diag(s[:k]) V[:k]'||` for every `k`, but you want to compress each layer w.r.t the final loss function and lots of non-linearities in between!
+Note that SVD compresses `W` optimally w.r.t the Euclidian norm `||W - U[:,:k] diag(s[:k]) V[:,:k]'||` for every `k`, but you want to compress each layer w.r.t the final loss function and lots of non-linearities in between!
 
 ### Example AutoEncoder; Sequential compression.
 When using TailDropout on the embedding layer, `k` has a qualitative meaning:
