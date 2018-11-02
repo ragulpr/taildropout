@@ -20,8 +20,8 @@ If `W` is some weights, then the SVD compression (same as PCA) is
 U,s,V = torch.svd(W)
 W == U.mm(s.diag()).mm(V.t()) # ~True in theory
 ```
+With `s` the eigenvalues of `W`. To use `k` *factors* to represent `w` set `s[k:]=0`. Due to [Linear Algebra](https://en.wikipedia.org/wiki/Singular_value_decomposition) `s[2:]==0` would allready be the case for example below. 
 
-With `s` the eigenvalues of `W`. Due to [Linear Algebra](https://en.wikipedia.org/wiki/Singular_value_decomposition) `s[2:]==0` will always hold.  
 ![](./_figs/svd.gif)
 
 Note that SVD compresses `W` optimally w.r.t the Euclidian norm, but you want to compress each layer w.r.t the final loss function and lots of non-linearities in between.
