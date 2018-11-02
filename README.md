@@ -31,15 +31,15 @@ When using TailDropout on the embedding layer, `k` has a qualitative meaning:
 
 ![](./_figs/ae.gif)
 
-### Usage
-dropout is an `nn.Module` that works just like `nn.Dropout`, applied to a tensor `x`: 
+## Usage
+TailDropout is an `nn.Module` that works just like `nn.Dropout`, applied to a tensor `x`: 
 ```
 from taildropout import TailDropout
 dropout = TailDropout(p=0.5,batch_dim=0, dropout_dim=1)
 y = dropout(x)
 ```
 
-### Pseudocode
+#### Pseudocode
 ```
 # x = input from previous layer
 # L = some parameter
@@ -49,7 +49,43 @@ for i in range(n_batch):
 ```
 Note, the actual implementation is **much** faster, vectorized and pytorch 0.2x, 0.3x,0.4x,1x GPU compatible. For Pytorch <0.4.1 it yields a significant speedup over regular dropout.
 
-More description to come.
+## Details
+#### Sequences
+"Recurrent dropout" == Keep mask constant over time. Popular approach.
+```
+x = torch.randn(n_timesteps,n_sequences,n_features)
+taildropout = TailDropout(batch_dim = 1, dropout_dim = 3)
+
+gru = nn.GRU(n_features,n_features)
+_,x = gru(x)
+x = taildropout(x)
+```
+
+#### Images
+"2d Dropout" == Keep mask constant over spatial dimension. Popular approach.
+```
+x = torch.randn(n_batch,n_features,n_pixels_x,n_pixels_y)
+taildropout = TailDropout(batch_dim = [0,1], dropout_dim = 3)
+
+cnn = nn.Conv2d(n_features,n_features, kernel_size)
+x = cnn(x)
+x = taildropout(x)
+```
+
+#### BatchNorm
+Same as with regular dropout; batchnorm *before* dropout.
+```
+layer = nn.Sequential(
+    nn.Linear(n_features,n_features),
+    nn.BatchNorm1d(n_features),
+    nn.ReLU(),
+    TailDropout()
+    )
+```
+
+##### Compression/regularization ratio is very large!
+If you don't care much about regularization, dropout probability in order 1e-2 
+seems to give good compression effect. I typically use `TailDropout(p=0.1)`. 
 
 #### Citation
 ```
