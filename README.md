@@ -43,7 +43,7 @@ See [example.ipynb](example.ipynb) for complete examples.
 #### Pseudocode
 ```
 # x = input from previous layer
-# L = some parameter
+# L = parameter controlling dropout-probability
 for i in range(n_batch):
     k = ~Exponential(L)
     x[i,k:] = 0 
