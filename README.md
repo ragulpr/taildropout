@@ -1,6 +1,6 @@
 # TailDropout
 
-Check out [examply.ipynb](examply.ipynb) or `test.py` and `test_performance.py` to get an idea how to use it. The idea is simple. At training time, only keep a random `k` first features. Results are as expected; this makes each layer learn features that are of additive importance, just like PCA.
+Check out [example.ipynb](example.ipynb) or `test.py` and `test_performance.py` to get an idea how to use it. The idea is simple. At training time, only keep a random `k` first features. Results are as expected; this makes each layer learn features that are of additive importance, just like PCA.
 
 ### At inference time, choose either of k=1,... features
 At each layer, for an input feature vector `x`, an input *feature* `x[j]` decides how far to go in the direction `w[:,j]` of layer output space.
@@ -35,9 +35,10 @@ When using TailDropout on the embedding layer, `k` has a qualitative meaning:
 TailDropout is an `nn.Module` that works just like `nn.Dropout`, applied to a tensor `x`: 
 ```
 from taildropout import TailDropout
-dropout = TailDropout(p=0.5,batch_dim=0, dropout_dim=1)
+dropout = TailDropout(p=0.5,batch_dim=0, dropout_dim=-1)
 y = dropout(x)
 ```
+See [example.ipynb](example.ipynb) for complete examples.
 
 #### Pseudocode
 ```
@@ -50,6 +51,15 @@ for i in range(n_batch):
 Note, the actual implementation is **much** faster, vectorized and pytorch 0.2x, 0.3x,0.4x,1x GPU compatible. For Pytorch <0.4.1 it yields a significant speedup over regular dropout.
 
 ## Details
+#### Training vs Inference
+```
+dropout = TailDropout()
+dropout(x) # random
+dropout.eval() 
+dropout(x) # Identity function
+dropout(x, n_used = k) # use first k features 
+```
+
 #### Sequences
 "Recurrent dropout" == Keep mask constant over time. Popular approach.
 ```
