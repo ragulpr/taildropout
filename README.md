@@ -126,3 +126,7 @@ seems to give good compression effect. I typically use `TailDropout(p=0.1)` to g
   commit = {master}
 }
 ```
+
+#### Aknowledgments
+This work was primarily done at [Naver Clova/Clair](https://research.clova.ai/). Big thanks to [Minjoon Seo](https://seominjoon.github.io/) for the original inspiration from his work on [Skim-RNN](https://arxiv.org/abs/1711.02085) and [Ji-Hoon Kim](https://scholar.google.co.kr/citations?user=1KdhN5QAAAAJ&hl=ko) for valuable discussions and feedback.
+
