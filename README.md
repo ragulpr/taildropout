@@ -2,11 +2,11 @@
 
 Check out [example.ipynb](example.ipynb) or `test.py` and `test_performance.py` to get an idea how to use it. The idea is simple. At training time, only keep a random `k` first features. Results are as expected; this makes each layer learn features that are of additive importance, just like PCA.
 
-### At inference time, choose either of k=1,... features
+## Matrix multiplication 101
 At each layer, a scalar input *feature* `x[j]` of an input feature vector `x` decides how far towards the direction `W[:,j]` of layer output space to go by scaling it `W[:,j]*x[j]`:
 
 ![](./_figs/taildropout.gif)
-### While training, randomly sample k
+### TailDropout: While training, randomly sample k
 Teach each **k first** directions to map input to target as good as possible.
 ![](./_figs/taildropout_random.gif)
 
