@@ -115,7 +115,7 @@ class TailDropout(nn.Module):
         self.set_p(p)
 
     def set_p(self, p):
-        self.p = p
+        self._p = p
         if p == 0 or p == 1:
             self.scale = None
         else:
@@ -126,9 +126,9 @@ class TailDropout(nn.Module):
 
         if dropout_start is None:
             if self.training:
-                if self.p == 0:
+                if self._p == 0:
                     mode = 'straight-through'
-                elif self.p == 1:
+                elif self._p == 1:
                     mode = 'zero'
                 else:
                     mode = 'random'
@@ -192,5 +192,5 @@ class TailDropout(nn.Module):
 
     def __repr__(self):
         return self.__class__.__name__ +\
-            '(p=' + str(self.p) + ', batch_dim=' + str(self.batch_dim) + \
+            '(p=' + str(self._p) + ', batch_dim=' + str(self.batch_dim) + \
             ', dropout_dim=' + str(self.dropout_dim) + ')'
