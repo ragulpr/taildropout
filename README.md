@@ -24,7 +24,7 @@ If `W` is some weights, then the SVD compression (same as PCA) is
 ```
 W = torch.randn(2,10)
 U,s,V = torch.svd(W)
-W == U.mm(s.diag()).mm(V.t()) # ~True in theory
+W.mm(x) == U.mm(s.diag()).mm(V.t()).mm(x) # ~True in theory
 ```
 With `s` the eigenvalues of `W`. To use the `k` first *factors/components/eigenvectors* to represent `W`, set `s[k:]=0`. 
 
