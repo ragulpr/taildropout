@@ -36,11 +36,15 @@ With `s` the eigenvalues of `W`. To use the `k` first *factors/components/eigenv
 Note that SVD compresses `W` optimally w.r.t the Euclidian norm `||W - U[:,:k] diag(s[:k]) V[:,:k]'||` for every `k`, but you want to compress each layer w.r.t the final loss function and lots of non-linearities in between!
 
 ### Example AutoEncoder; Sequential compression.
-When using TailDropout on the embedding layer, `k` has a qualitative meaning:
+When using TailDropout on the embedding layer, `k` controlls the compression rate:
 
-![](./_figs/ae.gif)
+![](./_figs/ae-taildropout.gif)
 
 Here even with `k=1` the resulting 1d-scalar embedding apparently separates shoes and shirts. 
+
+Compare this to how regular dropout works. Well, it's quite more random.
+![](./_figs/ae-dropout.gif)
+
 
 ## Usage
 TailDropout is an `nn.Module` that works just like `nn.Dropout`, applied to a tensor `x`: 
