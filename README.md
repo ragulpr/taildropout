@@ -38,12 +38,12 @@ Note that SVD compresses `W` optimally w.r.t the Euclidian norm `||W - U[:,:k] d
 ### Example AutoEncoder; Sequential compression.
 When using TailDropout on the embedding layer, `k` controlls the compression rate:
 
-[TailDropout](./_figs/ae-taildropout.gif)
+![TailDropout](./_figs/ae-taildropout.gif)
 
 Here even with `k=1` the resulting 1d-scalar embedding apparently separates shoes and shirts. 
 
 Compare this to how regular dropout works. Well, it's quite more random.
-[Regular dropout](./_figs/ae-dropout.gif)
+![Regular dropout](./_figs/ae-dropout.gif)
 
 
 ## Usage
