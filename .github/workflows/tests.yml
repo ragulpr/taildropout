@@ -1,0 +1,30 @@
+name: Tests
+
+on:
+  push:
+    branches: [ 'egil/fix-setup' ]
+  pull_request:
+    branches: [ 'egil/fix-setup' ]
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'  # Replace '3.x' with your desired Python version, e.g., '3.9'
+
+      - name: Install dependencies
+        run: |
+            python -m pip install --upgrade pip
+            pip install pytest
+            pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          pytest test.py
