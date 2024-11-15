@@ -41,42 +41,6 @@ def replace_w_ones_except(shape, dims):
     return newshape
 
 
-def _legacy_slice_zerofill(mask, dropout_dim, dropout_start):
-    """ Helper for pytorch 0.2x, 0.3x compatibility.
-
-        `.slice()` is not supported in pytorch <0.4
-
-        In pytorch 0.4x we'd do:
-        `mask.slice(dropout_dim,dropout_start).fill_(0)`
-
-        But in pytorch 0.2 we do a dirty trick for dropout_dim<7 lol
-
-    """
-    if dropout_dim < -1:
-        # to support negative indexing.
-        dropout_dim = len(mask.shape) + dropout_dim
-
-    if dropout_dim == -1:
-        mask[..., dropout_start:] = 0
-    elif dropout_dim == 0:
-        mask[dropout_start:] = 0
-    elif dropout_dim == 1:
-        mask[:, dropout_start:] = 0
-    elif dropout_dim == 2:
-        mask[:, :, dropout_start:] = 0
-    elif dropout_dim == 3:
-        mask[:, :, :, dropout_start:] = 0
-    elif dropout_dim == 4:
-        mask[:, :, :, :, dropout_start:] = 0
-    elif dropout_dim == 5:
-        mask[:, :, :, :, :, dropout_start:] = 0
-    elif dropout_dim == 6:
-        mask[:, :, :, :, :, :, dropout_start:] = 0
-    else:
-        raise ValueError(
-            'Expected dropout_dim = -1 or <7 but got ', dropout_dim)
-
-
 class TailDropout(nn.Module):
     r"""During training, randomly zeroes last n-k columns.
 
@@ -177,12 +141,12 @@ class TailDropout(nn.Module):
             return input
         if mode == 'first_n':
             mask = torch.ones_like(input)
-            try:
-                # Pytorch 0.4x
-                mask.slice(self.dropout_dim, dropout_start).fill_(0)
-            except:
-                # Pytorch <0.4
-                _legacy_slice_zerofill(mask, self.dropout_dim, dropout_start)
+            # Do mask[:, :, (...), :), :, dropout_start:] = 0 depending on dropout_dim
+            slices = [slice(None)] * input.ndim  # Start with full slices for all dimensions
+            slices[self.dropout_dim] = slice(dropout_start, None)  # Modify only the dropout_dim
+
+            # Use the slice object to set values to zero
+            mask[tuple(slices)] = 0
 
             return input * mask
         if mode == 'zero':

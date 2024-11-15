@@ -137,16 +137,13 @@ def test_dropoutprob():
             assert err < epsilon
 
 
-def test_legacy_slice_zerofill():
-    if torch.__version__[:3] < '0.4':
-        k = 100
-        mask1 = torch.randn([10, k])
-        mask2 = mask1.clone()
-        dropout_dim = 0
-        for dropout_start in range(k):
-            mask1.slice(dropout_dim, dropout_start).fill_(0)
-            _legacy_slice_zerofill(mask2, dropout_dim, dropout_start)
-            assert mask1.equal(mask2)
+def test_first_n():
+        x  = torch.randn([2,3,4,10,5])
+        dropout_start = 6
+        expected = x.clone()
+        expected[:, :, :, dropout_start:] = 0
+        actual =  TailDropout(dropout_dim=3)(x, dropout_start=dropout_start)
+        assert actual.equal(expected)
 
 print(f'torch version {torch.__version__}')
 print(f'torch.cuda.is_available():{torch.cuda.is_available()}')
