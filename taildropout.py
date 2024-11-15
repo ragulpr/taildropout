@@ -2,9 +2,12 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
+import torch
+import torch.nn as nn
+from torch import Tensor
+from typing import Union, List, Optional
 
-
-def get_params(p=0.5, lr=1e-5):
+def get_scale_param(p=0.5, lr=1e-5) -> float:
     """ Numerically solve integral equation int_0^1 S(x) dx = p
         with S survival function for exponential distribution.
 
@@ -42,24 +45,37 @@ def replace_w_ones_except(shape, dims):
 
 
 class TailDropout(nn.Module):
-    r"""During training, randomly zeroes last n-k columns.
-
-        >> dropout = TailDropout()
-        >> y = dropout(x)
-        >> 
-        >> dropout.eval()
-        >> y = dropout(x)
-        >> assert y.equal(x)
-        >> 
-        >> y = dropout(x,dropout_start = 10)
-        >> assert y[:,10:].sum()==0
+    """During training, randomly zeroes last n-k columns using exponential dropout probability.
+    
+    This module implements a form of structured dropout where features are dropped out
+    with increasing probability based on their position. This encourages the network
+    to learn features in order of importance.
+    
+    Args:
+        p: dropout probability (default: 0.5)
+        batch_dim: dimension(s) to treat as batch (default: 0)
+        dropout_dim: dimension to apply dropout to (default: -1)
+    
+    Example:
+        >>> dropout = TailDropout()
+        >>> x = torch.randn(20, 16)
+        >>> y = dropout(x)
+        >>> 
+        >>> dropout.eval()
+        >>> y = dropout(x)
+        >>> assert y.equal(x)
+        >>> 
+        >>> y = dropout(x,dropout_start = 10)
+        >>> assert y[:,10:].sum()==0
     """
 
-    def __init__(self, p=0.5, batch_dim=0, dropout_dim=-1):
-        super(TailDropout, self).__init__()
+    def __init__(self, 
+                 p: float = 0.5, 
+                 batch_dim: Union[int, List[int]] = 0, 
+                 dropout_dim: int = -1) -> None:
+        super().__init__()
         if p < 0 or p > 1:
-            raise ValueError("dropout probability has to be between 0 and 1, "
-                             "but got {}".format(p))
+            raise ValueError(f"dropout probability has to be between 0 and 1, but got {p}")
 
         is_overlap = False
         try:
@@ -68,8 +84,7 @@ class TailDropout(nn.Module):
             is_overlap = dropout_dim == batch_dim
 
         if is_overlap:
-            raise ValueError(
-                "batch_dim ({}) and dropout_dim {} can't overlap".format(batch_dim, batch_dim))
+            raise ValueError(f"batch_dim ({batch_dim}) and dropout_dim {batch_dim} can't overlap")
 
         self.batch_dim = batch_dim
         self.dropout_dim = dropout_dim
@@ -78,14 +93,14 @@ class TailDropout(nn.Module):
         self.cdf = lambda x, scale: 1 - torch.exp(-x / scale)
         self.set_p(p)
 
-    def set_p(self, p):
+    def set_p(self, p)->None:
         self._p = p
         if p == 0 or p == 1:
             self.scale = None
         else:
-            self.scale = get_params(p, lr=1e-5)
+            self.scale = get_scale_param(p, lr=1e-5)
 
-    def forward(self, input, dropout_start=None):
+    def forward(self, input: Tensor, dropout_start: Optional[int] = None) -> Tensor:
         n_features = input.shape[self.dropout_dim]
 
         if dropout_start is None:
@@ -104,8 +119,7 @@ class TailDropout(nn.Module):
             elif dropout_start == 0:
                 mode = 'zero'
             elif dropout_start > n_features:
-                raise ValueError("dropout_start ({}) greater than n_features ({})".format(
-                    dropout_start, n_features))
+                raise ValueError(f"dropout_start ({dropout_start}) greater than n_features ({n_features})")
             else:
                 mode = 'first_n'
 
@@ -154,7 +168,5 @@ class TailDropout(nn.Module):
 
         raise ValueError
 
-    def __repr__(self):
-        return self.__class__.__name__ +\
-            '(p=' + str(self._p) + ', batch_dim=' + str(self.batch_dim) + \
-            ', dropout_dim=' + str(self.dropout_dim) + ')'
+    def extra_repr(self) -> str:
+        return f'p={self._p}, batch_dim={self.batch_dim}, dropout_dim={self.dropout_dim}'
