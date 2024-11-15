@@ -13,12 +13,14 @@ parser.add_argument('--n-features', type=int, default=1000, metavar='N')
 parser.add_argument('--batch-size', type=int, default=5000, metavar='N')
 parser.add_argument('--no-cuda', action='store_true',
                     default=False, help='disables CUDA training')
+parser.add_argument('--time-limit', type=int,  default=None,
+                    help='Maximum allowed total time in seconds')
 args = parser.parse_args()
 
-print('args.no_cuda: ', args.no_cuda)
+print(f'args.no_cuda: {args.no_cuda}')
 args.cuda = not args.no_cuda and torch.cuda.is_available()
-print('GPU: ', args.cuda)
-print(torch.__version__)
+print(f'GPU: { args.cuda}')
+print(f'torch.__version__: {torch.__version__}')
 
 import time
 import math
@@ -59,6 +61,7 @@ def dropout_runner(Dropout,
 
     return time_since(start),time.time() - start
 
+total_start = time.time()
 
 for eval_mode in [False,True]:
     for requires_grad in [True,False]:
@@ -74,4 +77,9 @@ for eval_mode in [False,True]:
                                    eval_mode = eval_mode,
                                    backward = backward)
                     print(timing,'\t(',secs,'\t s total)\t',Dropout.__name__)
-print('FINISH')
+
+                    if args.time_limit is not None:
+                        secs_elapsed = round(time.time() - total_start)
+                        assert secs_elapsed < args.time_limit, f"Time limit exceeded: {secs_elapsed}s > {args.time_limit}s"
+    
+print(f'FINISH, total time: {time_since(total_start)} ({round(time.time() - total_start)}s tot)')
