@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [ 'egil/fix-setup' ]
+    branches: [ '*' ]
   pull_request:
-    branches: [ 'egil/fix-setup' ]
+    branches: [ '*' ]
 
 jobs:
   test:
