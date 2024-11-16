@@ -1,7 +1,6 @@
+from math import exp
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from taildropout import TailDropout
+from taildropout import TailDropout, get_scale_param
 
 def test_expected_mask():
     def test_routes(dropout, input_shape, requires_grad=False):
@@ -117,8 +116,15 @@ def test_grad():
         assert x.grad.detach().equal(y.detach())
         x.grad = None
 
+def test_get_scale_param():
+    tol=1e-6
+    for p_expected in [0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
+        a = get_scale_param(p_expected,tol)
+        p_actual = a - a * exp(-1 / a)  # int_0^1 S(x) dx
+        assert abs(p_expected-(1-p_actual))<tol
+
 def test_dropoutprob():
-    # Test that dropout probability is correct
+    # Integration test that dropout probability is correct up to errors from discretization.
     torch.manual_seed(1)
     n = 100000
     for k in [10, 50, 100, 1000]:
