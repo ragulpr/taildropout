@@ -1,36 +1,29 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-import torch.nn.functional as F
-import torch
-import torch.nn as nn
 from torch import Tensor
 from typing import Union, List, Optional
+from math import exp
 
-def get_scale_param(p=0.5, lr=1e-5) -> float:
+def get_scale_param(p=0.5, tol=1e-6) -> float:
     """ Numerically solve integral equation int_0^1 S(x) dx = p
         with S survival function for exponential distribution.
 
-        This is a very naive way of calculating it.
+        use a - a * exp(-1 / a) = int_0^1 S(x) dx = p
+        <=> a = p/(1 - exp(-1/a)) fixed point form 
+        and just iterate a=f(a) until convergence
+
+        This is an arbitrary and naive way of calculating it.
     """
-    p = 1 - p  # Probability of dropout i.e prob. of zero
-    from math import exp
-    G = lambda a: a - a * exp(-1 / a)  # int_0^1 S(x) dx
+    assert p!=0 and p!=1
 
-    if (1 - p) < 0.01:
-        lr = 1.  # Since too slow otherwise.
-
-    a = 0
-    err = 2.
-    # *Extremely* naive stepwise search from 0,0+lr,...
-    while a < 100000:
-        a = a + lr
-        err_last = err
-        err = (G(a) - p)**2
-        if err > err_last:
-            break
+    p = 1 - p     # Convert to dropout prob
+    a = 0.5/(1-p) # A good first guess especially for small (input) p
+    err=1+tol
+    while(err > tol):
+        a = p/(1 - exp(-1/a))
+        err = abs(p-(a - a * exp(-1 / a)))
     return a
-
 
 def replace_w_ones_except(shape, dims):
     # List like `shape` with ones everywhere except at `dims`.
@@ -98,7 +91,7 @@ class TailDropout(nn.Module):
         if p == 0 or p == 1:
             self.scale = None
         else:
-            self.scale = get_scale_param(p, lr=1e-5)
+            self.scale = get_scale_param(p)
 
     def forward(self, input: Tensor, dropout_start: Optional[int] = None) -> Tensor:
         n_features = input.shape[self.dropout_dim]
