@@ -1,4 +1,5 @@
 # TailDropout
+**"Improving neural networks by *enforcing* co-adaptation of feature detectors"**
 
 Check out [example.ipynb](example.ipynb) or `test.py` and `test_performance.py` to get an idea how to use it. The idea is simple. At training time, only keep a random `k` first features. Results are as expected; this makes a layer learn features that are of additive importance, just like PCA.
 
