@@ -56,6 +56,15 @@ y = dropout(x)
 ```
 See [example.ipynb](example.ipynb) for complete examples.
 
+To use it for pruning or estimating the optimal size of hidden dim, calculate n_features vs loss and create a [scree plot](https://en.wikipedia.org/wiki/Scree_plot#:~:text=In%20multivariate%20statistics%2C%20a%20scree,principal%20component%20analysis%20(PCA).)
+```
+for k in range(n_features):
+  ...
+  y = dropout(x,dropout_start = k)
+  ... (calculate loss using only k features)
+plt.plot(range(n_features), loss)
+```
+
 #### Pseudocode
 ```
 # x = input from previous layer
@@ -73,7 +82,7 @@ dropout = TailDropout()
 dropout(x) # random
 dropout.eval() 
 dropout(x) # Identity function
-dropout(x, n_used = k) # use first k features 
+dropout(x, dropout_start = k) # use first k features 
 ```
 
 #### Sequences
@@ -116,8 +125,8 @@ layer = nn.Sequential(
 ```
 
 ##### Compression/regularization ratio is very large!
-If you don't care much about regularization, dropout probability in order 1e-2 still 
-seems to give good compression effect. I typically use `TailDropout(p=0.1)` to get both. 
+If you don't care much about regularization, dropout probability in order 1e-5 still 
+seems to give good compression effect. I typically use `TailDropout(p=0.001)` to get both. 
 
 #### Citation
 ```
