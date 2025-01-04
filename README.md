@@ -142,5 +142,6 @@ seems to give good compression effect. I typically use `TailDropout(p=0.001)` to
 ```
 
 #### Aknowledgments
-This work was primarily done at [Naver Clova/Clair](https://research.clova.ai/). Big thanks to [Minjoon Seo](https://seominjoon.github.io/) for the original inspiration from his work on [Skim-RNN](https://arxiv.org/abs/1711.02085), [Ji-Hoon Kim](https://scholar.google.co.kr/citations?user=1KdhN5QAAAAJ&hl=ko), [Adrian Kim](https://scholar.google.co.kr/citations?user=l6lDgpgAAAAJ&hl=ko), [Prof. Jung-Woo Ha](https://scholar.google.com/citations?user=eGj3ay4AAAAJ&hl=en) and [Prof. Sung Kim](https://scholar.google.com/citations?user=JE_m2UgAAAAJ&hl=en) for valuable discussions and feedback.
+This work was primarily done in 2018 at [Naver Clova/Clair](https://research.clova.ai/). Big thanks to [Minjoon Seo](https://seominjoon.github.io/) for the original inspiration from his work on [Skim-RNN](https://arxiv.org/abs/1711.02085), [Ji-Hoon Kim](https://scholar.google.co.kr/citations?user=1KdhN5QAAAAJ&hl=ko), [Adrian Kim](https://scholar.google.co.kr/citations?user=l6lDgpgAAAAJ&hl=ko), [Prof. Jung-Woo Ha](https://scholar.google.com/citations?user=eGj3ay4AAAAJ&hl=en) and [Prof. Sung Kim](https://scholar.google.com/citations?user=JE_m2UgAAAAJ&hl=en) for valuable discussions and feedback.
 
+I'm sure this simple idea has been implemented before (which I was unaware of at the time) or after (which I have not had time to look for). Please let me know if there's anything relevant I should cite.
