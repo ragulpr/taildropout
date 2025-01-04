@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 from torch import Tensor
 from typing import Union, List, Optional
 from math import exp
@@ -117,9 +116,8 @@ class TailDropout(nn.Module):
                 mode = 'first_n'
 
         if mode == 'random':
-            type_out = input.data.type() if isinstance(input, Variable) else input.type()
+            type_out = input.type()
 
-            n_dim = len(input.shape)
             # No cuda torch.linspace for old versions of pytorch.
             linspace = torch.arange(1, n_features + 1, 1).type(type_out)
             # resized [1,n_features] if input 2d, [1,1,..,n_features] if nd
@@ -130,14 +128,8 @@ class TailDropout(nn.Module):
 
             # make [n_batch,1] noise if input 2d
             newshape = replace_w_ones_except(input.shape, self.batch_dim)
-            if isinstance(input, Variable):
-                uniform = input.data.new().resize_(newshape).uniform_()
-            else:
-                # in pytorch >0.4 variable.new() works too.
-                uniform = input.new().resize_(newshape).uniform_()
+            uniform = input.new().resize_(newshape).uniform_()
             mask = prob < uniform         # 43% of cpu cumtime
-            if isinstance(input, Variable):
-                mask = Variable(mask)
             mask = mask.type(type_out)    # 30% of cpu cumtime
             return input * mask           # 23% of cpu cumtime # Note works due to broadcasting
             # Tempting to do masked_fill
@@ -148,11 +140,9 @@ class TailDropout(nn.Module):
             return input
         if mode == 'first_n':
             mask = torch.ones_like(input)
-            # Do mask[:, :, (...), :), :, dropout_start:] = 0 depending on dropout_dim
+            # Do mask[:, :, (...), :, dropout_start:] = 0 depending on dropout_dim
             slices = [slice(None)] * input.ndim  # Start with full slices for all dimensions
             slices[self.dropout_dim] = slice(dropout_start, None)  # Modify only the dropout_dim
-
-            # Use the slice object to set values to zero
             mask[tuple(slices)] = 0
 
             return input * mask
