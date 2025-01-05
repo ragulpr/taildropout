@@ -110,14 +110,14 @@ def test_grad():
         y.sum().backward()
         assert x.grad.detach().equal(y.detach())
 
-        x.grad = None  # Modern way to zero gradients
+        x.grad = None
         y = dropout(x)
         y.sum().backward()
         assert x.grad.detach().equal(y.detach())
         x.grad = None
 
 def test_get_scale_param():
-    tol=1e-6
+    tol=1e-10
     for p_expected in [0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
         a = get_scale_param(p_expected,tol)
         p_actual = a - a * exp(-1 / a)  # int_0^1 S(x) dx
