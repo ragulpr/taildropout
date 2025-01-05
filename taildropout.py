@@ -4,15 +4,16 @@ from torch import Tensor
 from typing import Union, List, Optional
 from math import exp
 
-def get_scale_param(p=0.5, tol=1e-6) -> float:
+def get_scale_param(p, tol=1e-9) -> float:
     """ Numerically solve integral equation int_0^1 S(x) dx = p
         with S survival function for exponential distribution.
 
         use a - a * exp(-1 / a) = int_0^1 S(x) dx = p
         <=> a = p/(1 - exp(-1/a)) fixed point form 
-        and just iterate a=f(a) until convergence
+        and just iterate a=g(a) until convergence
 
-        This is an arbitrary and naive way of calculating it.
+        This is a naive way of calculating it.
+        But fast (nano-microseconds)
     """
     assert p!=0 and p!=1
 
