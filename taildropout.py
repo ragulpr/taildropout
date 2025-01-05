@@ -129,13 +129,14 @@ class TailDropout(nn.Module):
 
             # make [n_batch,1] noise if input 2d
             newshape = replace_w_ones_except(input.shape, self.batch_dim)
-            uniform = input.new().resize_(newshape).uniform_()
+            uniform = input.new(*newshape).uniform_()
             mask = prob < uniform         # 43% of cpu cumtime
             mask = mask.type(type_out)    # 30% of cpu cumtime
             return input * mask           # 23% of cpu cumtime # Note works due to broadcasting
-            # Tempting to do masked_fill
-            # But API unstable over cuda/cpu/pytorch 0.3/pytorch 0.4
-            # and probably be more memory costly.
+            # Similar performance / identical with torch.compile:
+            # uniform = input.new(*newshape).uniform_()
+            # inv_mask = prob >= uniform # ~mask
+            # return input.masked_fill(inv_mask, 0)
 
         if mode == 'straight-through':
             return input
