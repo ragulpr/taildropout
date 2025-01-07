@@ -11,74 +11,75 @@ def test_expected_mask():
         # Assert shapes
         dropout.train()
         assert dropout(x).shape == x.shape
-        assert dropout(x, 2).shape == x.shape
+        dropout.set_k(2)
+        assert dropout(x).shape == x.shape
         dropout.eval()
         assert dropout(x).shape == x.shape
-        assert dropout(x, 2).shape == x.shape
+        dropout.set_k(2)
+        assert dropout(x).shape == x.shape
 
-        # Assert shapes/forward for plain tensor
+
+        # Test values in train, eval, prune mode
+        dropout.eval()
+        y_all_eval = dropout(x)
+        dropout.set_k(2)
+        y_k_eval = dropout(x)
         dropout.train()
-        assert dropout(x.detach()).shape == x.shape
-        assert dropout(x.detach(), 2).shape == x.shape
-        dropout.eval()
-        assert dropout(x.detach()).shape == x.shape
-        assert dropout(x.detach(), 2).shape == x.shape
+        dropout.set_k(f)
+        y_all_train = dropout(x)
+        dropout.set_k(2)
 
-        # Test routes when dropout_start is/not None
-        dropout.eval()
-        y_eval = dropout(x)
-        y_eval2 = dropout(x, 5)
-        dropout.train()
-        y_train = dropout(x, k)
-        y_train2 = dropout(x, 5)
-        assert y_eval.equal(y_train)
-        assert y_eval2.equal(y_train2)
+        y_k_train = dropout(x)
+        torch.testing.assert_close(y_all_eval, y_all_train)
+        torch.testing.assert_close(y_k_eval, y_k_train)
 
-        dropout.eval()
-        y = dropout(x)
         # all columns exactly one
-        assert y.mean().allclose(torch.tensor(1.))
+        assert y_all_eval.mean().allclose(torch.tensor(1.))
+        assert y_k_eval.mean().allclose(torch.tensor(2/f))
 
-    def test_values_dd_last(dropout, input_shape):
-        # Assumes dropout dimension is the last dimension.
-        x = torch.ones(input_shape)
-        # Assert values
-        dropout.train()
-        y = dropout(x, 2).squeeze()
-        # all but first 2 values zero
-        assert torch.all(y[..., 2:].sum() == 0), y
-        # first 2 values ones
-        assert torch.mean(y[..., :2]).allclose(torch.tensor(1.))
+        if dropout.dropout_dim==-1 or dropout.dropout_dim == len(input_shape):
+            # Assumes dropout dimension is the last dimension.
+            x = torch.randn(input_shape)
+            # Assert values
+            dropout.set_k(2)
+            y = dropout(x)
+            torch.testing.assert_close(y[..., 2:], torch.zeros_like(y[..., 2:]))
+            torch.testing.assert_close(y[..., :2], x[..., :2])
 
     n = 5
-    k = 7
-    test_routes(dropout=TailDropout(), input_shape=(n, k))
-    test_routes(dropout=TailDropout(batch_dim=1), input_shape=(1, n, k))
-    test_routes(dropout=TailDropout(batch_dim=1), input_shape=(1, n, 1, k))
-    test_routes(dropout=TailDropout(batch_dim=0, dropout_dim=-1), input_shape=(n, 1, k))  # noqa
-    test_routes(dropout=TailDropout(batch_dim=1, dropout_dim=-2), input_shape=(1, n, 1, k, 1))  # noqa
-    test_routes(dropout=TailDropout(batch_dim=1, dropout_dim=3), input_shape=(1, n, 1, k, 1))  # noqa
-    test_routes(dropout=TailDropout(batch_dim=1), input_shape=(1, n, k))  # noqa
+    f = 7
 
-    test_values_dd_last(dropout=TailDropout(), input_shape=(n, k))  # noqa
-    test_values_dd_last(dropout=TailDropout(), input_shape=(n, 1, k))  # noqa
-    test_values_dd_last(dropout=TailDropout(), input_shape=(n, n, k))  # noqa
+    test_routes(dropout=TailDropout(), input_shape=(n, f))  # noqa
+    test_routes(dropout=TailDropout(), input_shape=(n, 1, f))  # noqa
+    test_routes(dropout=TailDropout(), input_shape=(n, n, f))  # noqa
 
-    test_values_dd_last(dropout=TailDropout(dropout_dim=1), input_shape=(n, k))
-    test_values_dd_last(dropout=TailDropout(dropout_dim=2), input_shape=(n, 1, k))  # noqa
-    test_values_dd_last(dropout=TailDropout(dropout_dim=2), input_shape=(n, n, k))  # noqa
+    test_routes(dropout=TailDropout(dropout_dim=1), input_shape=(n, f))
+    test_routes(dropout=TailDropout(dropout_dim=2), input_shape=(n, 1, f))  # noqa
+    test_routes(dropout=TailDropout(dropout_dim=2), input_shape=(n, n, f))  # noqa
 
-    test_values_dd_last(dropout=TailDropout(batch_dim=1), input_shape=(n, 1, k))  # noqa
-    test_values_dd_last(dropout=TailDropout(batch_dim=1), input_shape=(n, n, k))  # noqa
-    test_values_dd_last(dropout=TailDropout(batch_dim=[0, 1]), input_shape=(n, n, k))  # noqa
-    test_values_dd_last(dropout=TailDropout(batch_dim=[1, 0]), input_shape=(n, n, k))  # noqa
+    test_routes(dropout=TailDropout(batch_dim=0,  dropout_dim=-1), input_shape=(n, 1, f))  # noqa
+
+    test_routes(dropout=TailDropout(batch_dim=1), input_shape=(1, n, 1, f)) # noqa
+    test_routes(dropout=TailDropout(batch_dim=1), input_shape=(1, n, f))  # noqa
+    test_routes(dropout=TailDropout(batch_dim=1), input_shape=(n, 1, f))  # noqa
+    test_routes(dropout=TailDropout(batch_dim=1), input_shape=(n, n, f))  # noqa
+    test_routes(dropout=TailDropout(batch_dim=1, dropout_dim=-2), input_shape=(1, n, 1, f, 1))  # noqa
+    test_routes(dropout=TailDropout(batch_dim=1, dropout_dim=3), input_shape=(1, n, 1, f, 1))  # noqa
+
+
+    test_routes(dropout=TailDropout(batch_dim=[0, 1]), input_shape=(n, n, f))  # noqa
+    test_routes(dropout=TailDropout(batch_dim=[1, 0]), input_shape=(n, n, f))  # noqa
+
 
     # Test 0/1 probability
-    test_routes(dropout=TailDropout(0), input_shape=(n, k))
-    test_routes(dropout=TailDropout(1), input_shape=(n, k))
+    x = torch.ones([n,f])
+    if torch.cuda.is_available():
+        x = x.cuda()
+    torch.testing.assert_close(TailDropout(0)(x),x)
+    torch.testing.assert_close(TailDropout(1)(x),torch.zeros_like(x))
 
     # Variable with grad
-    test_routes(dropout=TailDropout(), input_shape=(n, k), requires_grad=True)
+    test_routes(dropout=TailDropout(), input_shape=(n, f), requires_grad=True)
 
 
 def test_multiple_batch_dim():
@@ -106,10 +107,13 @@ def test_grad():
                     TailDropout(1),
                     TailDropout(dropout_dim=4)]:
         # Deterministic
-        y = dropout(x, 2)
+        dropout.set_k(2)
+        y = dropout(x)
         y.sum().backward()
         assert x.grad.detach().equal(y.detach())
 
+        # Random
+        dropout.train()
         x.grad = None
         y = dropout(x)
         y.sum().backward()
@@ -143,32 +147,21 @@ def test_dropoutprob():
             assert err < epsilon
 
 
-def test_first_n():
+def test_first_k():
         x  = torch.randn([2,3,4,10,5])
         dropout_start = 6
         expected = x.clone()
         expected[:, :, :, dropout_start:] = 0
-        actual =  TailDropout(dropout_dim=3)(x, dropout_start=dropout_start)
+        dropout=TailDropout(dropout_dim=3)
+        dropout.set_k(dropout_start)
+        actual =  dropout(x)
         assert actual.equal(expected)
 
 print(f'torch version {torch.__version__}')
 print(f'torch.cuda.is_available():{torch.cuda.is_available()}')
 
-# print('CPU;')
-# print('test_expected_mask')
-# test_expected_mask()
-# print('test_multiple_batch_dim')
-# test_multiple_batch_dim()
-# print('test_grad')
-# test_grad()
-# print('test_dropoutprob')
-# test_dropoutprob()
-# if torch.cuda.is_available():
-#     print('GPU;')
-#     print('test_expected_mask')
-#     test_expected_mask()
-#     print('test_multiple_batch_dim')
-#     test_multiple_batch_dim()
-#     print('test_grad')
-#     test_grad()
-#     print('test_dropoutprob')
+# print('test_expected_mask',test_expected_mask())
+# print('test_multiple_batch_dim',test_multiple_batch_dim())
+# print('test_grad',test_grad())
+# print('test_dropoutprob',test_dropoutprob())
+# print('test_first_k',test_first_k())

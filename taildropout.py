@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch import Tensor
 from typing import Union, List, Optional
 from math import exp
+import warnings
 
 def get_scale_param(p, tol=1e-9) -> float:
     """ Numerically solve integral equation int_0^1 S(x) dx = p
@@ -58,7 +59,8 @@ class TailDropout(nn.Module):
         >>> y = dropout(x)
         >>> assert y.equal(x)
         >>> 
-        >>> y = dropout(x,dropout_start = 10)
+        >>> dropout.set_k(10)
+        >>> y = dropout(x)
         >>> assert y[:,10:].sum()==0
     """
 
@@ -85,6 +87,7 @@ class TailDropout(nn.Module):
         # exponential distribution
         self.cdf = lambda x, scale: 1 - torch.exp(-x / scale)
         self.set_p(p)
+        self.set_k(None)
 
     def set_p(self, p)->None:
         self._p = p
@@ -93,10 +96,25 @@ class TailDropout(nn.Module):
         else:
             self.scale = get_scale_param(p)
 
-    def forward(self, input: Tensor, dropout_start: Optional[int] = None) -> Tensor:
+    def set_k(self, k:Optional[int]) :
+        self.k = k
+
+    def train(self, mode=True):
+        if self.k is not None:
+            warnings.warn("Calling .train() resets `self.k={self.k}` to None")
+            self.set_k(None)
+        return super().train(mode)
+
+    def eval(self):
+        if self.k is not None:
+            warnings.warn("Calling .eval() resets `self.k={self.k}` to None")
+            self.set_k(None)
+        return super().eval()
+    
+    def forward(self, input: Tensor) -> Tensor:
         n_features = input.shape[self.dropout_dim]
 
-        if dropout_start is None:
+        if self.k is None:
             if self.training:
                 if self._p == 0:
                     mode = 'straight-through'
@@ -107,14 +125,14 @@ class TailDropout(nn.Module):
             else:
                 mode = 'straight-through'
         else:
-            if dropout_start == n_features:
+            if self.k == n_features:
                 mode = 'straight-through'
-            elif dropout_start == 0:
+            elif self.k == 0:
                 mode = 'zero'
-            elif dropout_start > n_features:
-                raise ValueError(f"dropout_start ({dropout_start}) greater than n_features ({n_features})")
+            elif self.k > n_features:
+                raise ValueError(f"TailDropout k ({self.k}) is greater than n_features ({n_features})")
             else:
-                mode = 'first_n'
+                mode = 'first_k'
 
         if mode == 'random':
             type_out = input.type()
@@ -140,11 +158,11 @@ class TailDropout(nn.Module):
 
         if mode == 'straight-through':
             return input
-        if mode == 'first_n':
+        if mode == 'first_k':
             mask = torch.ones_like(input)
-            # Do mask[:, :, (...), :, dropout_start:] = 0 depending on dropout_dim
+            # Do mask[:, :, (...), :, k:] = 0 depending on dropout_dim
             slices = [slice(None)] * input.ndim  # Start with full slices for all dimensions
-            slices[self.dropout_dim] = slice(dropout_start, None)  # Modify only the dropout_dim
+            slices[self.dropout_dim] = slice(self.k, None)  # Modify only the dropout_dim
             mask[tuple(slices)] = 0
 
             return input * mask
