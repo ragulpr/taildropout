@@ -22,7 +22,7 @@ Each direction has same inclusion probability.
 ### Comparison to PCA
 If `W` is some weights, then the SVD compression (same as PCA) is
 
-```
+```python
 W = torch.randn(2,10)
 U,s,V = torch.svd(W)
 W.mm(x) == U.mm(s.diag()).mm(V.t()).mm(x) # ~True in theory
@@ -49,7 +49,7 @@ Compare this to how regular dropout works. Well, it's quite more random.
 
 ## Usage
 TailDropout is an `nn.Module` that works just like `nn.Dropout`, applied to a tensor `x`: 
-```
+```python
 from taildropout import TailDropout
 dropout = TailDropout(p=0.5,batch_dim=0, dropout_dim=-1)
 y = dropout(x)
@@ -57,16 +57,17 @@ y = dropout(x)
 See [example.ipynb](example.ipynb) for complete examples.
 
 To use it for pruning or estimating the optimal size of hidden dim, calculate n_features vs loss and create a [scree plot](https://en.wikipedia.org/wiki/Scree_plot#:~:text=In%20multivariate%20statistics%2C%20a%20scree,principal%20component%20analysis%20(PCA).)
-```
+```python
 for k in range(n_features):
-  ...
-  y = dropout(x,dropout_start = k)
-  ... (calculate loss using only k features)
+  model.dropout.set_k(k)
+  y_pred = model(x) # calculate loss using only k features
+  loss = criterion(y, y_pred)
+
 plt.plot(range(n_features), loss)
 ```
 
 #### Pseudocode
-```
+```python
 # x = input from previous layer
 # L = parameter controlling dropout-probability
 for i in range(n_batch):
@@ -77,17 +78,18 @@ Note, the actual implementation is **much** faster, vectorized and made to be py
 
 ## Details
 #### Training vs Inference
-```
+```python
 dropout = TailDropout()
 dropout(x) # random
 dropout.eval() 
 dropout(x) # Identity function
-dropout(x, dropout_start = k) # use first k features 
+dropout.set_k(k)
+dropout(x) # use first k features 
 ```
 
 #### Sequences
 "Recurrent dropout" == Keep mask constant over time. Popular approach.
-```
+```python
 x = torch.randn(n_timesteps,n_sequences,n_features)
 
 gru = nn.GRU(n_features,n_features)
@@ -97,13 +99,13 @@ x, _ = gru(x)
 x = taildropout(x)
 ```
 If you want to have mask vary for each timestep and sequence
-```
+```python
 taildropout = TailDropout(batch_dim = [0,1], dropout_dim = 2)
 ```
 
 #### Images
 "2d Dropout" == Keep mask constant over spatial dimension. Popular approach.
-```
+```python
 x = torch.randn(n_batch,n_features,n_pixels_x,n_pixels_y)
 
 cnn = nn.Conv2d(n_features,n_features, kernel_size)
@@ -115,7 +117,7 @@ x = taildropout(x)
 
 #### BatchNorm
 Same as with regular dropout; batchnorm *before* dropout.
-```
+```python
 layer = nn.Sequential(
     nn.Linear(n_features,n_features),
     nn.BatchNorm1d(n_features),
