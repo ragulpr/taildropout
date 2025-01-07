@@ -1,7 +1,12 @@
 # TailDropout ![example workflow](https://github.com/ragulpr/taildropout/actions/workflows/tests.yml/badge.svg)
 **"Improving neural networks by *enforcing* co-adaptation of feature detectors"**
 
-Check out [example.ipynb](example.ipynb) or `test.py` and `test_performance.py` to get an idea how to use it. The idea is simple. At training time, only keep a random `k` first features. Results are as expected; this makes a layer learn features that are of additive importance, just like PCA.
+Check out [example.ipynb](example.ipynb) or `test.py` and `test_performance.py` to get an idea how to use it. The idea is simple. At training time, only keep a random `k` first features. Results are as expected; this makes a layer learn features that are of additive importance, just like PCA. 
+
+I'm happy to release this since I find it to be very useful. I use this for 
+* estimating the #features needed per layer
+* in place of dropout for regularization
+* to be able to choose a model size (after training to overfit!) that generalizes. 
 
 ## Matrix multiplication 101
 At each layer, a scalar input *feature* `x[j]` of a feature vector `x` decides how far to map input into the direction `W[:,j]` of the layer output space. This is done by `W[:,j]*x[j]`:
