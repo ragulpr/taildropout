@@ -29,8 +29,8 @@ def get_scale_param(p, tol=1e-9) -> float:
 def replace_w_ones_except(shape, dims):
     newshape = [1]*len(shape)
     dims = [dims] if isinstance(dims, int) else dims
-    for j in dims:
-        newshape[j] = shape[j]
+    for d in dims:
+        newshape[d] = shape[d]
     return newshape
 
 
