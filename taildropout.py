@@ -154,7 +154,8 @@ class TailDropout(nn.Module):
         if mode == 'straight-through':
             return input
         if mode == 'first_k':
-            mask = torch.ones_like(input)
+            mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
+            mask = input.new_ones(*mask_shape)
             # Do mask[:, :, (...), :, k:] = 0 depending on dropout_dim
             slices = [slice(None)] * input.ndim  # Start with full slices for all dimensions
             slices[self.dropout_dim] = slice(self.k, None)  # Modify only the dropout_dim
