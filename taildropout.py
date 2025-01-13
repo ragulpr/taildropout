@@ -27,14 +27,10 @@ def get_scale_param(p, tol=1e-9) -> float:
     return a
 
 def replace_w_ones_except(shape, dims):
-    # List like `shape` with ones everywhere except at `dims`.
-    newshape = [1 for _ in range(len(shape))]
-    try:
-        newshape[dims] = shape[dims]
-    except:
-        # dims iterable
-        for j in dims:
-            newshape[j] = shape[j]
+    newshape = [1]*len(shape)
+    dims = [dims] if isinstance(dims, int) else dims
+    for j in dims:
+        newshape[j] = shape[j]
     return newshape
 
 
