@@ -148,7 +148,6 @@ class TailDropout(nn.Module):
             mask = mask.type(type_out)    # 30% of cpu cumtime
             return input * mask           # 23% of cpu cumtime # Note works due to broadcasting
             # Similar performance / identical with torch.compile:
-            # uniform = input.new(*newshape).uniform_()
             # inv_mask = prob >= uniform # ~mask
             # return input.masked_fill(inv_mask, 0)
 
