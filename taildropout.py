@@ -135,10 +135,10 @@ class TailDropout(nn.Module):
                 mode = 'first_k'
 
         if mode == 'random':
-            type_out = input.type()
+            type_out = input.dtype
+            device = input.device
 
-            # No cuda torch.linspace for old versions of pytorch.
-            linspace = torch.arange(1, n_features + 1, 1).type(type_out)
+            linspace = torch.arange(1, n_features + 1, 1, device=device,dtype=type_out)
             # resized [1,n_features] if input 2d, [1,1,..,n_features] if nd
             newshape = replace_w_ones_except(input.shape, self.dropout_dim)
             linspace.resize_(newshape)
@@ -147,7 +147,7 @@ class TailDropout(nn.Module):
 
             # make [n_batch,1] noise if input 2d
             newshape = replace_w_ones_except(input.shape, self.batch_dim)
-            uniform = input.new(*newshape).uniform_()
+            uniform = torch.rand(newshape, device=device, dtype=type_out)
             mask = prob < uniform         # 43% of cpu cumtime
             mask = mask.type(type_out)    # 30% of cpu cumtime
             return input * mask           # 23% of cpu cumtime # Note works due to broadcasting
