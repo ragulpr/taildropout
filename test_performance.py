@@ -1,11 +1,9 @@
+import argparse
+import time
+import math
 import torch
-import torch.nn as nn
-from torch.autograd import Variable
-import torch.nn.functional as F
-
 from taildropout import TailDropout
 
-import argparse
 
 # python -m cProfile -s cumtime test_performance.py --repeats  10
 parser = argparse.ArgumentParser(description='')
