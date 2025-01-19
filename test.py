@@ -2,73 +2,74 @@ from math import exp
 import torch
 from taildropout import TailDropout, get_scale_param
 
+def _check_routes(dropout: TailDropout, input_shape, requires_grad=False):
+    x = torch.ones(input_shape, requires_grad=requires_grad)
+    f = input_shape[dropout.dropout_dim]
+    if torch.cuda.is_available():
+        x = x.cuda()
+        
+    # Assert shapes
+    dropout.train()
+    assert dropout(x).shape == x.shape
+    dropout.set_k(2)
+    assert dropout(x).shape == x.shape
+    dropout.eval()
+    assert dropout(x).shape == x.shape
+    dropout.set_k(2)
+    assert dropout(x).shape == x.shape
+
+
+    # Test values in train, eval, prune mode
+    dropout.eval()
+    y_all_eval = dropout(x)
+    dropout.set_k(2)
+    y_k_eval = dropout(x)
+    dropout.train()
+    dropout.set_k(f)
+    y_all_train = dropout(x)
+    dropout.set_k(2)
+
+    y_k_train = dropout(x)
+    torch.testing.assert_close(y_all_eval, y_all_train)
+    torch.testing.assert_close(y_k_eval, y_k_train)
+
+    # all columns exactly one
+    assert y_all_eval.mean().allclose(torch.tensor(1.))
+    assert y_k_eval.mean().allclose(torch.tensor(2/f))
+
+    if dropout.dropout_dim==-1 or dropout.dropout_dim == len(input_shape):
+        # Assumes dropout dimension is the last dimension.
+        x = torch.randn(input_shape)
+        # Assert values
+        dropout.set_k(2)
+        y = dropout(x)
+        torch.testing.assert_close(y[..., 2:], torch.zeros_like(y[..., 2:]))
+        torch.testing.assert_close(y[..., :2], x[..., :2])
+
 def test_expected_mask():
-    def test_routes(dropout, input_shape, requires_grad=False):
-        x = torch.ones(input_shape, requires_grad=requires_grad)
-        if torch.cuda.is_available():
-            x = x.cuda()
-            
-        # Assert shapes
-        dropout.train()
-        assert dropout(x).shape == x.shape
-        dropout.set_k(2)
-        assert dropout(x).shape == x.shape
-        dropout.eval()
-        assert dropout(x).shape == x.shape
-        dropout.set_k(2)
-        assert dropout(x).shape == x.shape
-
-
-        # Test values in train, eval, prune mode
-        dropout.eval()
-        y_all_eval = dropout(x)
-        dropout.set_k(2)
-        y_k_eval = dropout(x)
-        dropout.train()
-        dropout.set_k(f)
-        y_all_train = dropout(x)
-        dropout.set_k(2)
-
-        y_k_train = dropout(x)
-        torch.testing.assert_close(y_all_eval, y_all_train)
-        torch.testing.assert_close(y_k_eval, y_k_train)
-
-        # all columns exactly one
-        assert y_all_eval.mean().allclose(torch.tensor(1.))
-        assert y_k_eval.mean().allclose(torch.tensor(2/f))
-
-        if dropout.dropout_dim==-1 or dropout.dropout_dim == len(input_shape):
-            # Assumes dropout dimension is the last dimension.
-            x = torch.randn(input_shape)
-            # Assert values
-            dropout.set_k(2)
-            y = dropout(x)
-            torch.testing.assert_close(y[..., 2:], torch.zeros_like(y[..., 2:]))
-            torch.testing.assert_close(y[..., :2], x[..., :2])
-
     n = 5
     f = 7
 
-    test_routes(dropout=TailDropout(), input_shape=(n, f))  # noqa
-    test_routes(dropout=TailDropout(), input_shape=(n, 1, f))  # noqa
-    test_routes(dropout=TailDropout(), input_shape=(n, n, f))  # noqa
+    _check_routes(dropout=TailDropout(), input_shape=(n, f))  # noqa
+    _check_routes(dropout=TailDropout(), input_shape=(n, 1, f))  # noqa
+    _check_routes(dropout=TailDropout(), input_shape=(n, n, f))  # noqa
 
-    test_routes(dropout=TailDropout(dropout_dim=1), input_shape=(n, f))
-    test_routes(dropout=TailDropout(dropout_dim=2), input_shape=(n, 1, f))  # noqa
-    test_routes(dropout=TailDropout(dropout_dim=2), input_shape=(n, n, f))  # noqa
+    _check_routes(dropout=TailDropout(dropout_dim=1), input_shape=(n, f))
+    _check_routes(dropout=TailDropout(dropout_dim=2), input_shape=(n, 1, f))  # noqa
+    _check_routes(dropout=TailDropout(dropout_dim=2), input_shape=(n, n, f))  # noqa
 
-    test_routes(dropout=TailDropout(batch_dim=0,  dropout_dim=-1), input_shape=(n, 1, f))  # noqa
+    _check_routes(dropout=TailDropout(batch_dim=0,  dropout_dim=-1), input_shape=(n, 1, f))  # noqa
 
-    test_routes(dropout=TailDropout(batch_dim=1), input_shape=(1, n, 1, f)) # noqa
-    test_routes(dropout=TailDropout(batch_dim=1), input_shape=(1, n, f))  # noqa
-    test_routes(dropout=TailDropout(batch_dim=1), input_shape=(n, 1, f))  # noqa
-    test_routes(dropout=TailDropout(batch_dim=1), input_shape=(n, n, f))  # noqa
-    test_routes(dropout=TailDropout(batch_dim=1, dropout_dim=-2), input_shape=(1, n, 1, f, 1))  # noqa
-    test_routes(dropout=TailDropout(batch_dim=1, dropout_dim=3), input_shape=(1, n, 1, f, 1))  # noqa
+    _check_routes(dropout=TailDropout(batch_dim=1), input_shape=(1, n, 1, f)) # noqa
+    _check_routes(dropout=TailDropout(batch_dim=1), input_shape=(1, n, f))  # noqa
+    _check_routes(dropout=TailDropout(batch_dim=1), input_shape=(n, 1, f))  # noqa
+    _check_routes(dropout=TailDropout(batch_dim=1), input_shape=(n, n, f))  # noqa
+    _check_routes(dropout=TailDropout(batch_dim=1, dropout_dim=-2), input_shape=(1, n, 1, f, 1))  # noqa
+    _check_routes(dropout=TailDropout(batch_dim=1, dropout_dim=3), input_shape=(1, n, 1, f, 1))  # noqa
 
 
-    test_routes(dropout=TailDropout(batch_dim=[0, 1]), input_shape=(n, n, f))  # noqa
-    test_routes(dropout=TailDropout(batch_dim=[1, 0]), input_shape=(n, n, f))  # noqa
+    _check_routes(dropout=TailDropout(batch_dim=[0, 1]), input_shape=(n, n, f))  # noqa
+    _check_routes(dropout=TailDropout(batch_dim=[1, 0]), input_shape=(n, n, f))  # noqa
 
 
     # Test 0/1 probability
@@ -79,7 +80,7 @@ def test_expected_mask():
     torch.testing.assert_close(TailDropout(1)(x),torch.zeros_like(x))
 
     # Variable with grad
-    test_routes(dropout=TailDropout(), input_shape=(n, f), requires_grad=True)
+    _check_routes(dropout=TailDropout(), input_shape=(n, f), requires_grad=True)
 
 
 def test_multiple_batch_dim():
@@ -156,6 +157,17 @@ def test_first_k():
         dropout.set_k(dropout_start)
         actual =  dropout(x)
         assert actual.equal(expected)
+
+
+def test_compilation():
+    dropout = TailDropout()
+    dropout.compile()
+    _check_routes(dropout=dropout, input_shape=(10, 5, 3))  # noqa
+
+    x  = torch.randn((1, 100))
+    for k in range(1,101):
+        dropout.set_k(k)
+        dropout(x)
 
 print(f'torch version {torch.__version__}')
 print(f'torch.cuda.is_available():{torch.cuda.is_available()}')
