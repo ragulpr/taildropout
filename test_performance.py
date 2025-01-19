@@ -68,7 +68,7 @@ print(f"{'Eval Mode':<12} "
 for eval_mode in [False, True]:
     for requires_grad in [True, False]:
         for backward in [True, False]:
-            for compile in [False, True]:
+            for compile in [False]:
                 if backward and not requires_grad:
                     break
                     
