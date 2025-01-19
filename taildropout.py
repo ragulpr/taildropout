@@ -134,34 +134,37 @@ class TailDropout(nn.Module):
             type_out = input.dtype
             device = input.device
 
-            linspace = torch.arange(1, n_features + 1, 1, device=device,dtype=type_out)
-            # resized [1,n_features] if input 2d, [1,1,..,n_features] if nd
-            newshape = replace_w_ones_except(input.shape, self.dropout_dim)
-            linspace.resize_(newshape)
+            linspace = torch.arange(1, n_features + 1, 1, device=device, dtype=type_out)
+            prob_shape = replace_w_ones_except(input.shape, self.dropout_dim) #[1,1,..,n_features]
+            linspace.resize_(prob_shape)
             # self.scale*n_features faster than linspace/n_features
             prob = self.cdf(linspace, self.scale * n_features)
 
-            # make [n_batch,1] noise if input 2d
-            newshape = replace_w_ones_except(input.shape, self.batch_dim)
-            uniform = torch.rand(newshape, device=device, dtype=type_out)
-            mask = prob < uniform         # 43% of cpu cumtime
+            mask_shape = replace_w_ones_except(input.shape, self.batch_dim)
+            uniform = torch.rand(mask_shape, device=device, dtype=type_out) # [n_batch,1,1] if input 3d
+            mask = prob < uniform         # 43% of cpu cumtime                [n_batch,1,n_features] 
             mask = mask.type(type_out)    # 30% of cpu cumtime
             return input * mask           # 23% of cpu cumtime # Note works due to broadcasting
-            # Similar performance / identical with torch.compile:
-            # inv_mask = prob >= uniform # ~mask
+            # Similar performance / identical with torch.compile but doesn't propagate NaN:
+            # inv_mask = prob >= uniform
             # return input.masked_fill(inv_mask, 0)
 
         if mode == 'straight-through':
             return input
+        
         if mode == 'first_k':
+            # Do mask[:, :, (...), :, k:] = 0 in choice of dropout_dim
             mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
             mask = input.new_ones(*mask_shape)
-            # Do mask[:, :, (...), :, k:] = 0 depending on dropout_dim
-            slices = [slice(None)] * input.ndim  # Start with full slices for all dimensions
-            slices[self.dropout_dim] = slice(self.k, None)  # Modify only the dropout_dim
-            mask[tuple(slices)] = 0
+            slices = [slice(None)] * input.ndim
+
+            # Avoid recompilation for every k
+            with torch._dynamo.config.patch({"disable": True}):
+                slices[self.dropout_dim] = slice(self.k, None)
+                mask[tuple(slices)] = 0
 
             return input * mask
+        
         if mode == 'zero':
             return input * 0
 
