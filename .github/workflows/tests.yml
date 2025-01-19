@@ -30,4 +30,4 @@ jobs:
 
       - name: Run performance tests
         if: contains(github.event.head_commit.message, '[perf]')
-        run: python test_performance.py --repeats 1000 --time-limit 120
+        run: python test_performance.py

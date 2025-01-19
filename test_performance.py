@@ -7,7 +7,7 @@ from taildropout import TailDropout
 
 # python -m cProfile -s cumtime test_performance.py --repeats  10
 parser = argparse.ArgumentParser(description='')
-parser.add_argument('--repeats', type=int, default=1000000, metavar='N')
+parser.add_argument('--repeats', type=int, default=100000, metavar='N')
 parser.add_argument('--n-features', type=int, default=512, metavar='N')
 parser.add_argument('--batch-size', type=int, default=1024, metavar='N')
 parser.add_argument('--no-cuda', action='store_true',
