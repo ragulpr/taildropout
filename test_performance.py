@@ -24,17 +24,6 @@ print(f'GPU: { args.cuda}')
 print(f'torch.__version__: {torch.__version__}')
 print(args)
 
-import time
-import math
-
-import os
-os.environ['OMP_NUM_THREADS'] = '16'
-os.environ['NUMEXPR_MAX_THREADS'] = '16'
-
-# Configure PyTorch threading
-torch.set_num_threads(16)  # Intra-op threads
-torch.set_num_interop_threads(16)  # Inter-op threads
-
 def time_since(since):
     s = time.time() - since
     m = math.floor(s / 60)
