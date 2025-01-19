@@ -3,43 +3,41 @@
 
 #### Compression as an Optimization Problem
 
-<!-- $$
-h^{0} = f(W^{0}x) \\
-y^{1} = f(Wh^{1}) \\
-\ldots \\
-y^{d} = f(Wh^{d}) \\
-
-\mathbf{\vec{1}}_k = \begin{bmatrix} 1 \\ 1 \\ 1 \\ 0 \\ \vdots \\ 0 \end{bmatrix} \\
-
-$$ -->
-
 Imagine starting from an arbitrary layer of a neural network with input vector $h$ of dimension $n$:
 
 $$
 y = NN(h) 
 $$
 
-To set "compression" as an optimization problem we could pose it as *"Reduce loss as much as possible when using $k=1,2,\dots,n$ features"* 
+To set "compression" as an optimization problem we could pose it as *"Reduce loss as much as possible when using* either $k=1,2,\dots,n$ *features"*
 
 $$
-\text{loss} = \sum_k^n \left\| y - NN\left(h \odot \mathbf{\vec{1}}_{k}\right) \right\|$$
-
-
-where $\mathbf{\vec{1}}_k$ is a binary mask vector:
+\text{loss} = \sum_k^n \left\| y - NN\left(h \odot \mathbf{\vec{1}}_{k}\right) \right\|
 $$
-\mathbf{\vec{1}}_k  = ( \underbrace{1, 1, 1}_{k \text{ times}}, \underbrace{0, 0,0,0, 0}_{n-k \text{ times}} )^T
-$$
-which zeros out all but $k$ features of $h$. We then minimize the weighted sum of resulting losses. 
 
-But that seems like a lot of forward passes (1 per feature) so what if we instead randomly sample $k$ with probability $p_k$:
+
+where $\mathbf{\vec{1}}_k$ is a binary mask with zeros after $k$'th feature:
 
 $$
-\underline{\overline{k}} \sim  \left\{1,2,\dots,n\right\}
+\mathbf{\vec{1}}_k = 
+\begin{pmatrix}
+1 & 1 & 1 & 0 & 0 & \cdots & 0
+\end{pmatrix}^T
+$$
+
+We then minimize the weighted sum of the $n$ losses. But that seems like a lot of forward passes (1 per feature) so what if we instead randomly sample $k$ with probability $p_k$:
+
+$$
+\underline{\overline{k}} \sim  \left\\{1,2,\dots,n \right\\}
 $$
 
 Let's do so
+
 $$
-\mathbb{E}[\text{loss}] = \mathbb{E}\left[\left\| y - NN\left(h \odot \mathbf{\vec{1}}_{\underline{\overline{k}}}\right) \right\|\right] \\
+\mathbb{E}[\text{loss}] = \mathbb{E}\left[\left\| y - NN\left(h \odot \mathbf{\vec{1}}_{\underline{\overline{k}}}\right) \right\|\right]
+$$
+
+$$
  = \sum_k^f p_k \left\| y - NN\left(h * \mathbf{\vec{1}}_{k}\right) \right\| \\
 $$
 
