@@ -158,7 +158,7 @@ def test_first_k():
         actual =  dropout(x)
         assert actual.equal(expected)
 
-# @pytest.mark.skip(reason="Only run when explicitly requested with --runskipped")
+
 def test_compilation():
     dropout = TailDropout()
     dropout.compile()

@@ -1,2 +1,2 @@
 # torch==2.2.2 last with macos supported
-torch>=2
+torch>2
