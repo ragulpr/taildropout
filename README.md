@@ -9,14 +9,17 @@ $$
 y = NN(h) 
 $$
 
-To set "compression" as an optimization problem we could pose it as *"Reduce loss as much as possible when using* either $k=1,2,\dots,n$ *features"*
+To set "compression" as an optimization problem we could pose it as 
+
+> *"Hit the target as close as possible using* either $k=1,2,\dots$ or all $n$ *features"*
+
+I.e learning a representation that is incrementally better the more features you add. Let's describe this as explicitly minimizing the weighted sum of the $n$ losses:
 
 $$
 \text{loss} = \sum_k^n \left\| y - NN\left(h \odot \mathbf{\vec{1}}_{k}\right) \right\|
 $$
 
-
-where $\mathbf{\vec{1}}_k$ is a binary mask with zeros after $k$'th feature:
+where $\mathbf{\vec{1}}_k$ is a binary mask zeroing out the vector "tail" after the $k$'th feature:
 
 $$
 \mathbf{\vec{1}}_k = 
@@ -25,23 +28,22 @@ $$
 \end{pmatrix}^T
 $$
 
-We then minimize the weighted sum of the $n$ losses. But that seems like a lot of forward passes (1 per feature) so what if we instead randomly sample $k$ with probability $p_k$:
+This would be a lot of forward passes (1 per feature) so what if we instead randomly sample $k$ with probability $p_k$:
 
 $$
 \underline{\overline{k}} \sim  \left\\{1,2,\dots,n \right\\}
 $$
 
-Let's do so
+Doing so we see that in expectation (=large batchsize) we approximate the original objective:
 
 $$
 \mathbb{E}[\text{loss}] = \mathbb{E}\left[\left\| y - NN\left(h \odot \mathbf{\vec{1}}_{\underline{\overline{k}}}\right) \right\|\right]
 $$
 
 $$
- = \sum_k^f p_k \left\| y - NN\left(h * \mathbf{\vec{1}}_{k}\right) \right\| \\
+ = \sum_k^n p_k \left\| y - NN\left(h * \mathbf{\vec{1}}_{k}\right) \right\| \\
 $$
 
-And in expectation (=large batchsize) we approximate the original objective.
 
 **And that's all there is to it!** 
 
@@ -77,7 +79,7 @@ I'm happy to release this since I've found it very useful over the years. I've u
 * To be able to choose a model size (after training to overfit!) that generalizes.
 * For fiddling with neural networks. (*"mechanistic interpretability"*)
 
-The implementation is faster than `nn.Dropout`, has multi GPU support and *torch.compile()*'s.
+The implementation is faster than `nn.Dropout`, supports multi-GPU and *torch.compile()*'s.
 
 ## Matrix multiplication 101
 At each layer, a scalar input *feature* `x[j]` of a feature vector `x` decides how far to map input into the direction `W[:,j]` of the layer output space. This is done by `W[:,j]*x[j]`:
@@ -90,12 +92,12 @@ Teach each **k first** directions to map input to target as good as possible.
 Each direction has decreasing probability of being used.
 
 ### Compare to regular dropout
-Teach each of the $2^n$ **subsets of directions** to map input to targets as good as possible.
+Teach each $2^n$ **subset of directions** to map input to targets as good as possible.
 ![](./_figs/dropout.gif)
 
-Each direction has same inclusion probability. 
+Each direction in W has same inclusion probability but there's $2^n$ combinations to learn.
 
-Regular dropout [scales](https://pytorch.org/docs/stable/_modules/torch/nn/modules/dropout.html#Dropout) input by $\frac{1}{1-p}$ in `.eval()` mode meaning with $p=0.5$ we could train for an output magnitude ex $[0,1]$ but do inference on ex $[0,2]$. Noting that bugs appear in the extreme values of distributions not in the expected values - TailDropout does not scale.
+Regular dropout [scales](https://pytorch.org/docs/stable/_modules/torch/nn/modules/dropout.html#Dropout) input by $\frac{1}{1-p}$ in `.eval()` mode meaning with $p=0.5$ we could train for an output magnitude ex $[0,2]$ but do inference on ex $[0,1]$ - a cause of much confusion and bugs. TailDropout does not scale differently between train / test.
 
 ### Comparison to PCA
 If `W` is some weights, then the SVD compression (same as PCA) is
