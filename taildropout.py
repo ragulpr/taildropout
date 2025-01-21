@@ -83,6 +83,7 @@ class TailDropout(nn.Module):
         # exponential distribution
         self.cdf = lambda x, scale: 1 - torch.exp(-x / scale)
         self.set_p(p)
+        self.register_buffer("_k", torch.tensor([0], dtype=torch.long), persistent=False)
         self.set_k(None)
 
     def set_p(self, p)->None:
@@ -93,16 +94,22 @@ class TailDropout(nn.Module):
             self.scale = get_scale_param(p)
 
     def set_k(self, k:Optional[int]) :
-        self.k = k
+        if k is None:
+            # Least bad alt. but confusing as `[0,1][:-1] == [0]`
+            # But we will use it as k=n_features (but dont want to set n_features at build time) 
+            self._k[0] = -1
+        else:
+            assert k>=0, f"k={k} but expected k>=0 or k=None"
+            self._k[0] = k
 
     def train(self, mode=True):
-        if self.k is not None:
+        if self._k != -1:
             warnings.warn("Calling .train() resets `self.k={self.k}` to None")
             self.set_k(None)
         return super().train(mode)
 
     def eval(self):
-        if self.k is not None:
+        if self._k != -1:
             warnings.warn("Calling .eval() resets `self.k={self.k}` to None")
             self.set_k(None)
         return super().eval()
@@ -110,7 +117,7 @@ class TailDropout(nn.Module):
     def forward(self, input: Tensor) -> Tensor:
         n_features = input.shape[self.dropout_dim]
 
-        if self.k is None:
+        if self._k == -1:
             if self.training:
                 if self._p == 0:
                     mode = 'straight-through'
@@ -121,11 +128,11 @@ class TailDropout(nn.Module):
             else:
                 mode = 'straight-through'
         else:
-            if self.k == n_features:
+            if self._k == n_features:
                 mode = 'straight-through'
-            elif self.k == 0:
+            elif self._k == 0:
                 mode = 'zero'
-            elif self.k > n_features:
+            elif self._k > n_features:
                 raise ValueError(f"TailDropout k ({self.k}) is greater than n_features ({n_features})")
             else:
                 mode = 'first_k'
@@ -158,10 +165,8 @@ class TailDropout(nn.Module):
             mask = input.new_ones(*mask_shape)
             slices = [slice(None)] * input.ndim
 
-            # Avoid recompilation for every k
-            with torch._dynamo.config.patch({"disable": True}):
-                slices[self.dropout_dim] = slice(self.k, None)
-                mask[tuple(slices)] = 0
+            slices[self.dropout_dim] = slice(self._k, None)
+            mask[tuple(slices)] = 0
 
             return input * mask
         
