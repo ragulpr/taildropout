@@ -39,12 +39,33 @@ def _check_routes(dropout: TailDropout, input_shape, requires_grad=False):
 
     if dropout.dropout_dim==-1 or dropout.dropout_dim == len(input_shape):
         # Assumes dropout dimension is the last dimension.
-        x = torch.randn(input_shape)
+        z = torch.randn_like(x)
         # Assert values
         dropout.set_k(2)
-        y = dropout(x)
+        y = dropout(z)
         torch.testing.assert_close(y[..., 2:], torch.zeros_like(y[..., 2:]))
-        torch.testing.assert_close(y[..., :2], x[..., :2])
+        torch.testing.assert_close(y[..., :2], z[..., :2])
+
+    
+    if requires_grad:
+        # Think "y = x * mask"
+        # Deterministic
+        x.grad = None
+        dropout.set_k(2)
+        y = dropout(x)
+        y.sum().backward()
+        mask = x.grad.detach()
+        assert mask.equal(y.detach())
+
+        # Random
+        dropout.train()
+        x.grad = None
+        y = dropout(x)
+        y.sum().backward()
+        mask = x.grad.detach()
+        assert mask.equal(y.detach())
+        x.grad = None
+
 
 def test_expected_mask():
     n = 5
@@ -70,7 +91,6 @@ def test_expected_mask():
 
     _check_routes(dropout=TailDropout(batch_dim=[0, 1]), input_shape=(n, n, f))  # noqa
     _check_routes(dropout=TailDropout(batch_dim=[1, 0]), input_shape=(n, n, f))  # noqa
-
 
     # Test 0/1 probability
     x = torch.ones([n,f])
@@ -163,26 +183,40 @@ import torch
 from torch._dynamo.testing import CompileCounterWithBackend
 import logging 
 def test_compilation():
-    torch._logging.set_logs(dynamo=logging.DEBUG)    
-    # 1. Set up the compile counter and wrap TailDropout with torch.compile
+    torch._logging.set_logs(
+        # dynamo=logging.DEBUG,
+        # recompiles=True,
+        recompiles_verbose=True,
+        perf_hints=True
+        )
+    
     compile_counter = CompileCounterWithBackend("inductor")
     dropout = TailDropout()
     dropout = torch.compile(dropout, backend=compile_counter)
 
-    # 2. Run _check_routes and measure how many new graphs got compiled
+    # Measure how many new graphs got compiled
     before_check_routes = len(compile_counter.graphs)
-    _check_routes(dropout=dropout, input_shape=(10, 5, 3))  # noqa
+    _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=False)  # noqa
     after_check_routes = len(compile_counter.graphs)
-    assert (after_check_routes - before_check_routes) == 1
+    assert (after_check_routes - before_check_routes) == 12
 
-    # 3. Loop over k in [1..100], measuring compilation changes
-    x = torch.randn((1, 100))
-    before_loop = len(compile_counter.graphs)
-    for k in range(1, 101):
-        dropout.set_k(k)
-        dropout(x)
-    after_loop = len(compile_counter.graphs)
-    assert (after_loop - before_loop) == 0
+    # This shouldn't scale with f
+    expected_recompiles = {5:5,8:1,16:0, 32:0, 64:0, 128:0}
+    for f,expected in expected_recompiles.items():
+        x = torch.randn((1, f))
+        before_k = len(compile_counter.graphs)
+        for k in range(f+1):
+            dropout.set_k(k)
+            dropout(x)
+        after_k = len(compile_counter.graphs)
+        assert (after_k - before_k) == expected
+
+    # Check delta when doing backward pass
+    before_check_routes = len(compile_counter.graphs)
+    _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=True)
+    after_check_routes = len(compile_counter.graphs)
+    assert (after_check_routes - before_check_routes) == 5
+
 
 
 print(f'torch version {torch.__version__}')
