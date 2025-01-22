@@ -159,15 +159,31 @@ def test_first_k():
         assert actual.equal(expected)
 
 
+import torch
+from torch._dynamo.testing import CompileCounterWithBackend
+import logging 
 def test_compilation():
+    torch._logging.set_logs(dynamo=logging.DEBUG)    
+    # 1. Set up the compile counter and wrap TailDropout with torch.compile
+    compile_counter = CompileCounterWithBackend("inductor")
     dropout = TailDropout()
-    dropout.compile()
-    _check_routes(dropout=dropout, input_shape=(10, 5, 3))  # noqa
+    dropout = torch.compile(dropout, backend=compile_counter)
 
-    x  = torch.randn((1, 100))
-    for k in range(1,101):
+    # 2. Run _check_routes and measure how many new graphs got compiled
+    before_check_routes = len(compile_counter.graphs)
+    _check_routes(dropout=dropout, input_shape=(10, 5, 3))  # noqa
+    after_check_routes = len(compile_counter.graphs)
+    assert (after_check_routes - before_check_routes) == 1
+
+    # 3. Loop over k in [1..100], measuring compilation changes
+    x = torch.randn((1, 100))
+    before_loop = len(compile_counter.graphs)
+    for k in range(1, 101):
         dropout.set_k(k)
         dropout(x)
+    after_loop = len(compile_counter.graphs)
+    assert (after_loop - before_loop) == 0
+
 
 print(f'torch version {torch.__version__}')
 print(f'torch.cuda.is_available():{torch.cuda.is_available()}')
