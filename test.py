@@ -1,6 +1,6 @@
 from math import exp
 import os
-import psutil
+# import psutil
 import torch
 from taildropout import TailDropout, get_scale_param
 import torch
@@ -230,7 +230,7 @@ def test_compilation_set_k():
     dropout = torch.compile(dropout, backend=compile_counter)
 
     # The number of graphs may scale with new f but shouldn't scale with calls to set_k
-    mem_before_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 
+    # mem_before_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 
     for f in [4,5,8,16,32,64,128,258, 1024, 1048576]:
         x = torch.randn((1,1,f), device=DEVICE)
         before_k = len(compile_counter.graphs)
@@ -240,9 +240,9 @@ def test_compilation_set_k():
             dropout(x)
 
         x.storage().resize_(0)
-        mem_used_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 - mem_before_mb
-        new_graphs_per_f = len(compile_counter.graphs) - before_k
-        print(f"{f}|{k}| {len(compile_counter.graphs)} | {new_graphs_per_f} | {mem_used_mb}")
+        # mem_used_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 - mem_before_mb
+        # new_graphs_per_f = len(compile_counter.graphs) - before_k
+        # print(f"{f}|{k}| {len(compile_counter.graphs)} | {new_graphs_per_f} | {mem_used_mb}")
     
     assert len(compile_counter.graphs) == 2
 
