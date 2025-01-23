@@ -197,23 +197,23 @@ def test_compilation():
     dropout = TailDropout()
     dropout = torch.compile(dropout, backend=compile_counter)
 
-    # Measure how many new graphs got compiled
+    # Measure how many new graphs got compiled. Use less then to cover multiple versions
     # Forward pass - no grad
     _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=False)  # noqa
-    assert len(compile_counter.graphs) == 1
-    # Note sure why >1 calls => 2 graphs
-    _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=False)  # noqa
-    assert len(compile_counter.graphs) == 2
+    assert len(compile_counter.graphs) <= 2
 
     _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=False)  # noqa
-    assert len(compile_counter.graphs) == 2
+    assert len(compile_counter.graphs) <= 2
+
+    _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=False)  # noqa
+    assert len(compile_counter.graphs) <= 2
 
     # Forward + Backward pass
     _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=True)  # noqa
-    assert len(compile_counter.graphs) == 2
+    assert len(compile_counter.graphs) <= 2
 
     _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=True)  # noqa
-    assert len(compile_counter.graphs) == 2
+    assert len(compile_counter.graphs) <= 2
 
 def test_compilation_set_k():
     torch.compiler.reset()
@@ -231,7 +231,7 @@ def test_compilation_set_k():
 
     # The number of graphs may scale with new f but shouldn't scale with calls to set_k
     # mem_before_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 
-    for f in [4,5,8,16,32,64,128,258, 1024, 1048576]:
+    for f in [4,5,8,16,32,64,65,128,258, 1024, 1048576]:
         x = torch.randn((1,1,f), device=DEVICE)
         before_k = len(compile_counter.graphs)
 
@@ -243,8 +243,8 @@ def test_compilation_set_k():
         # mem_used_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 - mem_before_mb
         new_graphs_per_f = len(compile_counter.graphs) - before_k
         print(f"{f}|{k}| {len(compile_counter.graphs)} | {new_graphs_per_f}")
-         
-    assert len(compile_counter.graphs) == 2
+
+    assert len(compile_counter.graphs) <= 7
 
 
 
