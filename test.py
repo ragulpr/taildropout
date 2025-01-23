@@ -1,12 +1,19 @@
 from math import exp
+import os
+import psutil
 import torch
 from taildropout import TailDropout, get_scale_param
+import torch
+from torch._dynamo.testing import CompileCounterWithBackend
+import logging 
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu" 
+print(f'torch version {torch.__version__}')
+print(f'Device: {DEVICE}')
 
 def _check_routes(dropout: TailDropout, input_shape, requires_grad=False):
-    x = torch.ones(input_shape, requires_grad=requires_grad)
+    x = torch.ones(input_shape, requires_grad=requires_grad, device=DEVICE)
     f = input_shape[dropout.dropout_dim]
-    if torch.cuda.is_available():
-        x = x.cuda()
         
     # Assert shapes
     dropout.train()
@@ -93,9 +100,7 @@ def test_expected_mask():
     _check_routes(dropout=TailDropout(batch_dim=[1, 0]), input_shape=(n, n, f))  # noqa
 
     # Test 0/1 probability
-    x = torch.ones([n,f])
-    if torch.cuda.is_available():
-        x = x.cuda()
+    x = torch.ones([n,f], device=DEVICE)
     torch.testing.assert_close(TailDropout(0)(x),x)
     torch.testing.assert_close(TailDropout(1)(x),torch.zeros_like(x))
 
@@ -104,7 +109,7 @@ def test_expected_mask():
 
 
 def test_multiple_batch_dim():
-    x = torch.ones(100, 100, 10)
+    x = torch.ones(100, 100, 10, device=DEVICE)
     if torch.cuda.is_available():
         x = x.cuda()
 
@@ -120,7 +125,7 @@ def test_multiple_batch_dim():
 def test_grad():
     n = 2
     k = 5
-    x = torch.ones(n, 1, 2, 3, k, requires_grad=True)
+    x = torch.ones(n, 1, 2, 3, k, requires_grad=True, device=DEVICE)
 
 
     for dropout in [TailDropout(),
@@ -156,7 +161,7 @@ def test_dropoutprob():
         epsilon = 2e-2
         if k == 10:
             epsilon = 5e-2
-        x = torch.ones(n, 2, k)
+        x = torch.ones(n, 2, k, device=DEVICE)
 
         print('K', '\t', 'p', '\t', 'observed_p', '\t', 'err')
         for p in [0, 0.0001, 0.001, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]:
@@ -169,7 +174,7 @@ def test_dropoutprob():
 
 
 def test_first_k():
-        x  = torch.randn([2,3,4,10,5])
+        x  = torch.randn([2,3,4,10,5], device=DEVICE)
         dropout_start = 6
         expected = x.clone()
         expected[:, :, :, dropout_start:] = 0
@@ -179,51 +184,75 @@ def test_first_k():
         assert actual.equal(expected)
 
 
-import torch
-from torch._dynamo.testing import CompileCounterWithBackend
-import logging 
 def test_compilation():
-    torch._logging.set_logs(
-        # dynamo=logging.DEBUG,
-        # recompiles=True,
-        recompiles_verbose=True,
-        perf_hints=True
-        )
+    torch.compiler.reset()
+    # torch._logging.set_logs(
+    #     # dynamo=logging.DEBUG,
+    #     # recompiles=True,
+    #     # recompiles_verbose=True,
+    #     # perf_hints=True
+    #     )
     
     compile_counter = CompileCounterWithBackend("inductor")
     dropout = TailDropout()
     dropout = torch.compile(dropout, backend=compile_counter)
 
     # Measure how many new graphs got compiled
-    before_check_routes = len(compile_counter.graphs)
+    # Forward pass - no grad
     _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=False)  # noqa
-    after_check_routes = len(compile_counter.graphs)
-    assert (after_check_routes - before_check_routes) == 12
+    assert len(compile_counter.graphs) == 1
+    # Note sure why >1 calls => 2 graphs
+    _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=False)  # noqa
+    assert len(compile_counter.graphs) == 2
 
-    # This shouldn't scale with f
-    expected_recompiles = {5:5,8:1,16:0, 32:0, 64:0, 128:0}
-    for f,expected in expected_recompiles.items():
-        x = torch.randn((1, f))
+    _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=False)  # noqa
+    assert len(compile_counter.graphs) == 2
+
+    # Forward + Backward pass
+    _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=True)  # noqa
+    assert len(compile_counter.graphs) == 2
+
+    _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=True)  # noqa
+    assert len(compile_counter.graphs) == 2
+
+def test_compilation_set_k():
+    torch.compiler.reset()
+    
+    # torch._logging.set_logs(
+    #     # dynamo=logging.DEBUG,
+    #     # recompiles=True,
+    #     # recompiles_verbose=True,
+    #     # perf_hints=True
+    #     )
+    
+    compile_counter = CompileCounterWithBackend("inductor")
+    dropout = TailDropout()
+    dropout = torch.compile(dropout, backend=compile_counter)
+
+    # The number of graphs may scale with new f but shouldn't scale with calls to set_k
+    mem_before_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 
+    for f in [4,5,8,16,32,64,128,258, 1024, 1048576]:
+        x = torch.randn((1,1,f), device=DEVICE)
         before_k = len(compile_counter.graphs)
-        for k in range(f+1):
+
+        for k in range(0,f+1,max(1,f//2048)):
             dropout.set_k(k)
             dropout(x)
-        after_k = len(compile_counter.graphs)
-        assert (after_k - before_k) == expected
 
-    # Check delta when doing backward pass
-    before_check_routes = len(compile_counter.graphs)
-    _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=True)
-    after_check_routes = len(compile_counter.graphs)
-    assert (after_check_routes - before_check_routes) == 5
-
+        x.storage().resize_(0)
+        mem_used_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 - mem_before_mb
+        new_graphs_per_f = len(compile_counter.graphs) - before_k
+        print(f"{f}|{k}| {len(compile_counter.graphs)} | {new_graphs_per_f} | {mem_used_mb}")
+    
+    assert len(compile_counter.graphs) == 2
 
 
-print(f'torch version {torch.__version__}')
-print(f'torch.cuda.is_available():{torch.cuda.is_available()}')
 
 # print('test_expected_mask',test_expected_mask())
 # print('test_multiple_batch_dim',test_multiple_batch_dim())
 # print('test_grad',test_grad())
+# print("test_get_scale_param",test_get_scale_param())
 # print('test_dropoutprob',test_dropoutprob())
 # print('test_first_k',test_first_k())
+# print('test_compilation',test_compilation())
+# print('test_compilation_set_k',test_compilation_set_k())
