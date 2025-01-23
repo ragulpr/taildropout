@@ -235,15 +235,15 @@ def test_compilation_set_k():
         x = torch.randn((1,1,f), device=DEVICE)
         before_k = len(compile_counter.graphs)
 
-        for k in range(0,f+1,max(1,f//2048)):
+        for k in range(0,f+1,max(1,f//1024)):
             dropout.set_k(k)
             dropout(x)
 
         x.storage().resize_(0)
         # mem_used_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 - mem_before_mb
-        # new_graphs_per_f = len(compile_counter.graphs) - before_k
-        # print(f"{f}|{k}| {len(compile_counter.graphs)} | {new_graphs_per_f} | {mem_used_mb}")
-    
+        new_graphs_per_f = len(compile_counter.graphs) - before_k
+        print(f"{f}|{k}| {len(compile_counter.graphs)} | {new_graphs_per_f}")
+         
     assert len(compile_counter.graphs) == 2
 
 
