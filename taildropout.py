@@ -117,34 +117,29 @@ class TailDropout(nn.Module):
             mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
             mask = mask.reshape(mask_shape)
             return mask
+    
+    def forward(self, input: Tensor) -> Tensor:
+        n_features = input.shape[self.dropout_dim]
 
-    @torch.compiler.disable(recursive=True)
-    def _get_mode(self, n_features):        
         if self.k is None:
             if self.training:
                 if self._p == 0:
-                    return 'straight-through'
+                    mode = 'straight-through'
                 elif self._p == 1:
-                    return 'zero'
+                    mode = 'zero'
                 else:
-                    return 'random'
+                    mode = 'random'
             else:
-                return 'straight-through'
+                mode = 'straight-through'
         else:
             if self.k == n_features:
-                return 'straight-through'
+                mode = 'straight-through'
             elif self.k == 0:
-                return 'zero'
+                mode = 'zero'
             elif self.k > n_features:
                 raise ValueError(f"TailDropout k ({self.k}) is greater than n_features ({n_features})")
             else:
-                return 'first_k'
-            
-            ValueError(f"{n_features} {self.k} {self._p} {self.training}")
-
-    def forward(self, input: Tensor) -> Tensor:
-        n_features = input.shape[self.dropout_dim]
-        mode = self._get_mode(n_features)
+                mode = 'first_k'
 
         if mode == 'random':
             type_out = input.dtype
@@ -176,7 +171,7 @@ class TailDropout(nn.Module):
         if mode == 'zero':
             return input * 0
 
-        raise ValueError(mode)
+        raise ValueError
 
     def extra_repr(self) -> str:
         return f'p={self._p}, batch_dim={self.batch_dim}, dropout_dim={self.dropout_dim}'
