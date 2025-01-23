@@ -107,17 +107,6 @@ class TailDropout(nn.Module):
             self.set_k(None)
         return super().eval()
     
-    @torch.compiler.disable(recursive=True)
-    def _first_k_eval_mask(self,input):
-            n_features = input.shape[self.dropout_dim]
-            # Do mask[:, :, (...), :, k:] = 0 in choice of dropout_dim
-            mask = input.new_ones(n_features)
-            mask[self.k:] = 0
-
-            mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
-            mask = mask.reshape(mask_shape)
-            return mask
-    
     def forward(self, input: Tensor) -> Tensor:
         n_features = input.shape[self.dropout_dim]
 
@@ -165,7 +154,13 @@ class TailDropout(nn.Module):
             return input
         
         if mode == 'first_k':
-            mask = self._first_k_eval_mask(input)
+            # Do mask[:, :, (...), :, k:] = 0 in choice of dropout_dim
+            mask = input.new_ones(n_features)
+            mask[self.k:] = 0
+
+            mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
+            mask = mask.reshape(mask_shape)
+
             return input * mask
         
         if mode == 'zero':
