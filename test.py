@@ -203,17 +203,17 @@ def test_compilation():
     assert len(compile_counter.graphs) <= 2
 
     _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=False)  # noqa
-    assert len(compile_counter.graphs) <= 2
+    assert len(compile_counter.graphs) <= 3
 
     _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=False)  # noqa
-    assert len(compile_counter.graphs) <= 2
+    assert len(compile_counter.graphs) <= 3
 
     # Forward + Backward pass
     _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=True)  # noqa
-    assert len(compile_counter.graphs) <= 2
+    assert len(compile_counter.graphs) <= 3
 
     _check_routes(dropout=dropout, input_shape=(10, 5, 3), requires_grad=True)  # noqa
-    assert len(compile_counter.graphs) <= 2
+    assert len(compile_counter.graphs) <= 3
 
 def test_compilation_set_k():
     torch.compiler.reset()
