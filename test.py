@@ -183,12 +183,12 @@ def test_first_k():
 
 def test_compilation():
     torch.compiler.reset()
-    # torch._logging.set_logs(
-    #     # dynamo=logging.DEBUG,
-    #     # recompiles=True,
-    #     # recompiles_verbose=True,
-    #     # perf_hints=True
-    #     )
+    torch._logging.set_logs(
+        # dynamo=logging.DEBUG,
+        recompiles=True,
+        # recompiles_verbose=True,
+        # perf_hints=True
+    )
     
     compile_counter = CompileCounterWithBackend("inductor")
     dropout = TailDropout()
@@ -211,12 +211,12 @@ def test_compilation():
 def test_compilation_set_k():
     torch.compiler.reset()
     
-    # torch._logging.set_logs(
-    #     # dynamo=logging.DEBUG,
-    #     # recompiles=True,
-    #     # recompiles_verbose=True,
-    #     # perf_hints=True
-    #     )
+    torch._logging.set_logs(
+        # dynamo=logging.DEBUG,
+        recompiles=True,
+        # recompiles_verbose=True,
+        # perf_hints=True
+    )
     
     compile_counter = CompileCounterWithBackend("inductor")
     dropout = TailDropout()
