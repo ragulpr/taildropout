@@ -106,59 +106,65 @@ class TailDropout(nn.Module):
             warnings.warn("Calling .eval() resets `self.k={self.k}` to None")
             self.set_k(None)
         return super().eval()
-
-    def _generate_mask(self, input_shape, dtype, device):
-        n_features = input_shape[self.dropout_dim]
+    
+    def forward(self, input: Tensor) -> Tensor:
+        n_features = input.shape[self.dropout_dim]
+        type_out = input.dtype
+        device = input.device
 
         if self.k is None:
-            if self.train:
-                if self.p==1:
-                    return torch.zeros(1, dtype=torch.bool)
-                if self.p==0:
-                    return torch.ones(1, dtype=torch.bool)
-
-                linspace = torch.arange(1, n_features + 1, 1, device=device, dtype=dtype)
-                # self.scale*n_features faster than linspace/n_features
-                prob = self.cdf(linspace, self.scale * n_features)
-
-                prob_shape = replace_w_ones_except(input.shape, self.dropout_dim) #[1,1,..,n_features]
-                prob = prob.reshape(prob_shape)
-
-                noise_shape = replace_w_ones_except(input.shape, self.batch_dim)
-                uniform = torch.rand(noise_shape, device=device, dtype=dtype) # [n_batch,1,1] if input 3d
-                mask = prob < uniform         # 43% of cpu cumtime                [n_batch,1,n_features] 
-                # mask = mask.type(type_out)    # 30% of cpu cumtime # Explicit only for timing purposes.
-                return mask           # 23% of cpu cumtime # Note works due to broadcasting
-                # Similar performance / identical with torch.compile but doesn't propagate NaN:
-                # inv_mask = prob >= uniform
-                # return input.masked_fill(inv_mask, 0)
+            if self.training:
+                if self._p == 0:
+                    mode = 'straight-through'
+                elif self._p == 1:
+                    mode = 'zero'
+                else:
+                    mode = 'random'
             else:
-                return torch.ones(1, dtype=torch.bool)
-        elif self.k > n_features:
-            raise ValueError(f"TailDropout k ({self.k}) is greater than n_features ({n_features})")
-        elif self.k==0:
-            return torch.zeros(1, dtype=torch.bool)
-        elif self.k==n_features:
-            return torch.ones(1, dtype=torch.bool)
+                mode = 'straight-through'
         else:
+            if self.k == n_features:
+                mode = 'straight-through'
+            elif self.k == 0:
+                mode = 'zero'
+            elif self.k > n_features:
+                raise ValueError(f"TailDropout k ({self.k}) is greater than n_features ({n_features})")
+            else:
+                mode = 'first_k'
+
+        if mode == 'random':
+            linspace = torch.arange(1, n_features + 1, 1, device=device, dtype=type_out)
+            # self.scale*n_features faster than linspace/n_features
+            prob = self.cdf(linspace, self.scale * n_features)
+
+            prob_shape = replace_w_ones_except(input.shape, self.dropout_dim) #[1,1,..,n_features]
+            prob = prob.reshape(prob_shape)
+
+            noise_shape = replace_w_ones_except(input.shape, self.batch_dim)
+            uniform = torch.rand(noise_shape, device=device, dtype=type_out) # [n_batch,1,1] if input 3d
+            mask = prob < uniform         # 43% of cpu cumtime                [n_batch,1,n_features] 
+            # mask = mask.type(type_out)    # 30% of cpu cumtime # Explicit only for timing purposes.
+            return input * mask           # 23% of cpu cumtime # Note works due to broadcasting
+            # Similar performance / identical with torch.compile but doesn't propagate NaN:
+            # inv_mask = prob >= uniform
+            # return input.masked_fill(inv_mask, 0)
+
+        if mode == 'straight-through':
+            return input
+        
+        if mode == 'first_k':
             # Do mask[:, :, (...), :, k:] = 0 in choice of dropout_dim
             # Implementation suboptimal but chosen to avoid recompilation with k
             linspace = torch.arange(n_features, device=device, dtype=torch.int64)
             mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
             mask = linspace.reshape(mask_shape) < self.k
-            return mask
-            
-    def forward(self, input: Tensor) -> Tensor:
-        input_shape = input.shape
-        dtype = input.dtype
-        device = input.device
 
-        mask = self._generate_mask(input_shape, dtype, device)
-        if mask==torch.ones(1, dtype=torch.bool):
-            return input        
-        if mask==torch.zeros(1, dtype=torch.bool):
-            return torch.zeros_like(input)
-        return input*mask
+            return input * mask
+        
+        if mode == 'zero':
+            return input * 0
+
+        raise ValueError
 
     def extra_repr(self) -> str:
         return f'p={self._p}, batch_dim={self.batch_dim}, dropout_dim={self.dropout_dim}'
