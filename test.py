@@ -107,8 +107,6 @@ def test_expected_mask():
 
 def test_multiple_batch_dim():
     x = torch.ones(100, 100, 10, device=DEVICE)
-    if torch.cuda.is_available():
-        x = x.cuda()
 
     y = TailDropout(batch_dim=0)(x).sum(-1).sum(0)
     # Mask[i,a] == Mask[i,b] for all i, a, b
@@ -223,7 +221,6 @@ def test_compilation_set_k():
     dropout = torch.compile(dropout, backend=compile_counter)
 
     # The number of graphs may scale with new f but shouldn't scale with calls to set_k
-    # mem_before_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 
     for f in [4,5,8,16,32,64,65,128,258, 1024, 1048576]:
         x = torch.randn((1,1,f), device=DEVICE)
         before_k = len(compile_counter.graphs)
@@ -233,11 +230,13 @@ def test_compilation_set_k():
             dropout(x)
 
         x.storage().resize_(0)
-        # mem_used_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 - mem_before_mb
         new_graphs_per_f = len(compile_counter.graphs) - before_k
-        print(f"{f}|{k}| {len(compile_counter.graphs)} | {new_graphs_per_f}")
+        print(f"{f:7d}|{k:7d}| {len(compile_counter.graphs)} | {new_graphs_per_f}")
 
-    assert len(compile_counter.graphs) <= 7
+    if DEVICE=='cpu':
+        assert len(compile_counter.graphs) <= 2
+    else:
+        assert len(compile_counter.graphs) <= 6
 
 
 
