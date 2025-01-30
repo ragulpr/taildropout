@@ -38,9 +38,10 @@ def _check_routes(dropout: TailDropout, input_shape, requires_grad=False):
     torch.testing.assert_close(y_all_eval, y_all_train)
     torch.testing.assert_close(y_k_eval, y_k_train)
 
-    # all columns exactly one
     assert y_all_eval.mean().allclose(torch.tensor(1.))
     assert y_k_eval.mean().allclose(torch.tensor(2/f))
+    dropout.set_k(1)
+    assert dropout(x).mean().allclose(torch.tensor(1/f))
 
     if dropout.dropout_dim==-1 or dropout.dropout_dim == len(input_shape):
         # Assumes dropout dimension is the last dimension.
@@ -170,7 +171,7 @@ def test_dropoutprob():
 
 
 def test_first_k():
-        x  = torch.randn([2,3,4,10,5], device=DEVICE)
+        x = torch.randn([2,3,4,10,5], device=DEVICE)
         dropout_start = 6
         expected = x.clone()
         expected[:, :, :, dropout_start:] = 0
@@ -179,8 +180,35 @@ def test_first_k():
         actual =  dropout(x)
         assert actual.equal(expected)
 
+def test_compilation_works():
+    torch.compiler.reset()
+    _check_routes(dropout = torch.compile(TailDropout()), input_shape=(10, 5, 3), requires_grad=False)  # noqa
+    _check_routes(dropout = torch.compile(TailDropout()), input_shape=(10, 5, 3), requires_grad=True)  # noqa
 
-def test_compilation():
+def test_compilation_fails():
+    torch.compiler.reset()
+    def _foo():
+        _model = torch.compile(TailDropout())
+        x = torch.randn([5,5]).to(DEVICE)
+        _model.set_k(3)
+        _model(x)
+    _foo()
+    _check_routes(dropout= torch.compile(TailDropout()), input_shape=(10, 5, 3), requires_grad=False)  # noqa
+    _check_routes(dropout= torch.compile(TailDropout()), input_shape=(10, 5, 3), requires_grad=True)  # noqa
+
+def test_compilation_equality_k():
+    torch.compiler.reset()
+    x = torch.ones([5,5]).to(DEVICE)
+    model_orig = TailDropout()
+    model_compiled = torch.compile(TailDropout())
+    model_orig.set_k(3)
+    model_compiled.set_k(3)
+    print(model_orig(x))
+    print(model_compiled(x))
+    torch.testing.assert_close(model_orig(x), model_compiled(x))
+    torch.testing.assert_close(model_orig(x), model_compiled(x))
+
+def test_recompilation():
     torch.compiler.reset()
     # torch._dynamo.config.verify_correctness = True # Wont' work due to randomness
     torch._logging.set_logs(
@@ -191,14 +219,17 @@ def test_compilation():
     )
     
     compile_counter = CompileCounterWithBackend("inductor")
-    model = TailDropout().to(DEVICE)
-    model = torch.compile(model, backend=compile_counter)
 
-    # Measure how many new graphs got compiled. Use less then to cover multiple torch versions + GPU
+    # Check equality in forward pass
+    # model_uncompiled = TailDropout()
+    model = torch.compile(TailDropout(), backend=compile_counter)
+    
+    # Measure how many new graphs got compiled. Use "<=" to cover multiple torch versions + GPU
     # Forward pass - no grad
     _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=False)  # noqa
     assert len(compile_counter.graphs) <= 2
 
+    # Repeated calls
     for _ in range(5):
         _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=False)  # noqa
         assert len(compile_counter.graphs) <= 3
@@ -208,8 +239,22 @@ def test_compilation():
         _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=True)  # noqa
         assert len(compile_counter.graphs) <= 3
 
+    # Forward + Backward pass - Prime @ train
+    model.train()
+    model(torch.ones((10, 5, 3)).to(DEVICE))
+    for _ in range(5):
+        _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=True)  # noqa
+        assert len(compile_counter.graphs) <= 3
 
-def test_compilation_set_k():
+    # Forward + Backward pass - Prime @ eval
+    model = torch.compile(TailDropout(), backend=compile_counter)
+    model.eval()
+    model(torch.ones((10, 5, 3)).to(DEVICE))
+    for _ in range(5):
+        _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=True)  # noqa
+        assert len(compile_counter.graphs) <= 3
+
+def test_compilation_set_k(): # FAILS
     torch.compiler.reset()
     torch._dynamo.config.cache_size_limit = 1000 # Trick to not err out on recompile
     # torch._dynamo.config.verify_correctness = True # Fails with torch >2.2
@@ -220,25 +265,20 @@ def test_compilation_set_k():
         # perf_hints=True
     )
     
-    f = 100
-    x = torch.randn(1, f, device = DEVICE, requires_grad=False)
+    f = 16
+    x = torch.ones(1, f, device = DEVICE, requires_grad=False)
     compile_counter = CompileCounterWithBackend("inductor")
-    # Compiler is finnicky and may recompile depending on context/surrounding modules.
-    model = torch.nn.Sequential(
-        torch.nn.Linear(f, 5),
-        TailDropout(),
-        torch.nn.Linear(5, 5),
-        TailDropout(),
-        )
+    model = TailDropout()
     model = model.to(DEVICE)
     model = torch.compile(model, backend=compile_counter)
-    model(x)
-    for k in range(f+1):
-        for _name, module in model.named_modules():
-            if isinstance(module, TailDropout):
-                module.set_k(k)
-        model(x)
-    
+    with torch.no_grad():
+        for k in range(f+1):
+            # for _name, module in model.named_modules():
+            #     if isinstance(module, TailDropout):
+            #         module.set_k(k)
+            model.set_k(k)
+            y = model(x)
+            assert y.sum()==k,(y,k)
     assert len(compile_counter.graphs) <= f
 
 
