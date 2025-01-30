@@ -208,9 +208,10 @@ def test_compilation():
         _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=True)  # noqa
         assert len(compile_counter.graphs) <= 3
 
+
 def test_compilation_set_k():
     torch.compiler.reset()
-    torch._dynamo.config.cache_size_limit = 1000
+    torch._dynamo.config.cache_size_limit = 1000 # Trick to not err out on recompile
     # torch._dynamo.config.verify_correctness = True # Fails with torch >2.2
     torch._logging.set_logs(
         # dynamo=logging.DEBUG,
@@ -219,17 +220,25 @@ def test_compilation_set_k():
         # perf_hints=True
     )
     
-    compile_counter = CompileCounterWithBackend("inductor")
-    model = TailDropout().to(DEVICE)
-    model = torch.compile(model, backend=compile_counter)
-
     f = 100
     x = torch.randn(1, f, device = DEVICE, requires_grad=False)
-
+    compile_counter = CompileCounterWithBackend("inductor")
+    # Compiler is finnicky and may recompile depending on context/surrounding modules.
+    model = torch.nn.Sequential(
+        torch.nn.Linear(f, 5),
+        TailDropout(),
+        torch.nn.Linear(5, 5),
+        TailDropout(),
+        )
+    model = model.to(DEVICE)
+    model = torch.compile(model, backend=compile_counter)
+    model(x)
     for k in range(f+1):
-        model.set_k(k)
+        for _name, module in model.named_modules():
+            if isinstance(module, TailDropout):
+                module.set_k(k)
         model(x)
-
+    
     assert len(compile_counter.graphs) <= f
 
 
