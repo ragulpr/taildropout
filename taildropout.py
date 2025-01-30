@@ -109,8 +109,6 @@ class TailDropout(nn.Module):
     
     def forward(self, input: Tensor) -> Tensor:
         n_features = input.shape[self.dropout_dim]
-        type_out = input.dtype
-        device = input.device
 
         if self.k is None:
             if self.training:
@@ -133,6 +131,9 @@ class TailDropout(nn.Module):
                 mode = 'first_k'
 
         if mode == 'random':
+            type_out = input.dtype
+            device = input.device
+
             linspace = torch.arange(1, n_features + 1, 1, device=device, dtype=type_out)
             # self.scale*n_features faster than linspace/n_features
             prob = self.cdf(linspace, self.scale * n_features)
@@ -140,10 +141,10 @@ class TailDropout(nn.Module):
             prob_shape = replace_w_ones_except(input.shape, self.dropout_dim) #[1,1,..,n_features]
             prob = prob.reshape(prob_shape)
 
-            noise_shape = replace_w_ones_except(input.shape, self.batch_dim)
-            uniform = torch.rand(noise_shape, device=device, dtype=type_out) # [n_batch,1,1] if input 3d
+            mask_shape = replace_w_ones_except(input.shape, self.batch_dim)
+            uniform = torch.rand(mask_shape, device=device, dtype=type_out) # [n_batch,1,1] if input 3d
             mask = prob < uniform         # 43% of cpu cumtime                [n_batch,1,n_features] 
-            # mask = mask.type(type_out)    # 30% of cpu cumtime # Explicit only for timing purposes.
+            # mask = mask.type(type_out)    # 30% of cpu cumtime
             return input * mask           # 23% of cpu cumtime # Note works due to broadcasting
             # Similar performance / identical with torch.compile but doesn't propagate NaN:
             # inv_mask = prob >= uniform
@@ -154,10 +155,11 @@ class TailDropout(nn.Module):
         
         if mode == 'first_k':
             # Do mask[:, :, (...), :, k:] = 0 in choice of dropout_dim
-            # Implementation suboptimal but chosen to avoid recompilation with k
-            linspace = torch.arange(n_features, device=device, dtype=torch.int64)
+            mask = input.new_ones(n_features)
+            mask[self.k:] = 0
+
             mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
-            mask = linspace.reshape(mask_shape) < self.k
+            mask = mask.reshape(mask_shape)
 
             return input * mask
         
