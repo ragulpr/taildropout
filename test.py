@@ -203,8 +203,6 @@ def test_compilation_equality_k():
     model_compiled = torch.compile(TailDropout())
     model_orig.set_k(3)
     model_compiled.set_k(3)
-    print(model_orig(x))
-    print(model_compiled(x))
     torch.testing.assert_close(model_orig(x), model_compiled(x))
     torch.testing.assert_close(model_orig(x), model_compiled(x))
 

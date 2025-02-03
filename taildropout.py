@@ -108,10 +108,6 @@ class TailDropout(nn.Module):
         return super().eval()
     
     def forward(self, input: Tensor) -> Tensor:
-        n_features = input.shape[self.dropout_dim]
-        type_out = input.dtype
-        device = input.device
-
         if self.k is None:
             if self.training:
                 if self._p == 0:
@@ -123,16 +119,16 @@ class TailDropout(nn.Module):
             else:
                 mode = 'straight-through'
         else:
-            if self.k == n_features:
-                mode = 'straight-through'
-            elif self.k == 0:
-                mode = 'zero'
-            elif self.k > n_features:
-                raise ValueError(f"TailDropout k ({self.k}) is greater than n_features ({n_features})")
-            else:
-                mode = 'first_k'
+            mode = 'first_k'
+
+        if mode == 'straight-through':
+            return input
 
         if mode == 'random':
+            n_features = input.shape[self.dropout_dim]
+            type_out = input.dtype
+            device = input.device
+
             linspace = torch.arange(1, n_features + 1, 1, device=device, dtype=type_out)
             # self.scale*n_features faster than linspace/n_features
             prob = self.cdf(linspace, self.scale * n_features)
@@ -148,23 +144,30 @@ class TailDropout(nn.Module):
             # Similar performance / identical with torch.compile but doesn't propagate NaN:
             # inv_mask = prob >= uniform
             # return input.masked_fill(inv_mask, 0)
-
-        if mode == 'straight-through':
-            return input
         
         if mode == 'first_k':
-            # Do mask[:, :, (...), :, k:] = 0 in choice of dropout_dim
-            # Implementation suboptimal but chosen to avoid recompilation with k
-            linspace = torch.arange(n_features, device=device, dtype=torch.int64)
-            mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
-            mask = linspace.reshape(mask_shape) < self.k
-
-            return input * mask
-        
+            return self._first_k_call(input)
+            
         if mode == 'zero':
             return input * 0
 
         raise ValueError
+
+    @torch.compiler.disable()
+    def _first_k_call(self, input):
+        n_features = input.shape[self.dropout_dim]
+        device = input.device
+
+        if self.k > n_features:
+            raise ValueError(f"TailDropout k ({self.k}) is greater than n_features ({n_features})")
+
+        # Do mask[:, :, (...), :, k:] = 0 in choice of dropout_dim
+        # Implementation suboptimal but chosen to avoid recompilation with k
+        linspace = torch.arange(n_features, device=device, dtype=torch.int64)
+        mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
+        mask = (linspace < self.k).reshape(mask_shape)
+
+        return input * mask
 
     def extra_repr(self) -> str:
         return f'p={self._p}, batch_dim={self.batch_dim}, dropout_dim={self.dropout_dim}, k={self.k}'
