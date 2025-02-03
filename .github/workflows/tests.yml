@@ -8,6 +8,16 @@ on:
 
 jobs:
   test:
+    strategy:
+      fail-fast: true
+      matrix:
+        pytorch: [ 
+          '2.6',
+          '2.5', 
+          '2.4', 
+          '2.3', 
+          '2.2.2',  # Last intel-osx compatible
+          ]
     runs-on: ubuntu-22.04
 
     steps:
@@ -17,15 +27,15 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: '3.10'
 
       - name: Cache virtual environment
         uses: actions/cache@v3
         id: cache-venv
         with:
           path: venv
-          key: ${{ runner.os }}-venv-${{ hashFiles('requirements*.txt') }}
-          restore-keys: ${{ runner.os }}-venv-
+          key: ${{ runner.os }}-venv-${{ matrix.pytorch }}-${{ hashFiles('requirements*.txt') }}
+          restore-keys: ${{ runner.os }}-venv-${{ matrix.pytorch }}-
 
       - name: Install dependencies (only if no cache hit)
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -33,6 +43,7 @@ jobs:
           python -m venv venv
           . venv/bin/activate
           python -m pip install --upgrade pip
+          pip install torch==${{ matrix.pytorch }}
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Run tests
