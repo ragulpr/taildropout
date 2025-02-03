@@ -185,7 +185,8 @@ def test_compilation_works():
     _check_routes(dropout = torch.compile(TailDropout()), input_shape=(10, 5, 3), requires_grad=False)  # noqa
     _check_routes(dropout = torch.compile(TailDropout()), input_shape=(10, 5, 3), requires_grad=True)  # noqa
 
-def test_compilation_fails():
+def test_compilation_works2():
+    # Failed on 2.2.2x when not disabling the k-forward call
     torch.compiler.reset()
     def _foo():
         _model = torch.compile(TailDropout())

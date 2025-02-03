@@ -156,17 +156,15 @@ class TailDropout(nn.Module):
     @torch.compiler.disable()
     def _first_k_call(self, input):
         n_features = input.shape[self.dropout_dim]
-        device = input.device
-
         if self.k > n_features:
             raise ValueError(f"TailDropout k ({self.k}) is greater than n_features ({n_features})")
 
         # Do mask[:, :, (...), :, k:] = 0 in choice of dropout_dim
-        # Implementation suboptimal but chosen to avoid recompilation with k
-        linspace = torch.arange(n_features, device=device, dtype=torch.int64)
-        mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
-        mask = (linspace < self.k).reshape(mask_shape)
+        mask = input.new_ones(n_features, dtype=torch.bool)
+        mask[self.k:] = 0
 
+        mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
+        mask = mask.reshape(mask_shape)
         return input * mask
 
     def extra_repr(self) -> str:
