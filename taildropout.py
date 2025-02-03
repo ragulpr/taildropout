@@ -167,4 +167,4 @@ class TailDropout(nn.Module):
         raise ValueError
 
     def extra_repr(self) -> str:
-        return f'p={self._p}, batch_dim={self.batch_dim}, dropout_dim={self.dropout_dim}'
+        return f'p={self._p}, batch_dim={self.batch_dim}, dropout_dim={self.dropout_dim}, k={self.k}'
