@@ -12,11 +12,11 @@ jobs:
       fail-fast: false
       matrix:
         pytorch: [ 
-          '2.2.2',  # Last intel-osx compatible
-          '2.3', 
-          '2.4', 
+          '2.6',
           '2.5', 
-          '2.6' 
+          '2.4', 
+          '2.3', 
+          '2.2.2',  # Last intel-osx compatible
           ]
     runs-on: ubuntu-22.04
 
