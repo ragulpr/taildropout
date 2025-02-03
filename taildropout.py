@@ -134,10 +134,11 @@ class TailDropout(nn.Module):
             prob = self.cdf(linspace, self.scale * n_features)
 
             prob_shape = replace_w_ones_except(input.shape, self.dropout_dim) #[1,1,..,n_features]
-            prob = prob.reshape(prob_shape)
+            noise_shape = replace_w_ones_except(input.shape, self.batch_dim)  #[n_batch,1,1] if input 3d         
 
-            noise_shape = replace_w_ones_except(input.shape, self.batch_dim)
-            uniform = torch.rand(noise_shape, device=device, dtype=type_out) # [n_batch,1,1] if input 3d
+            prob = prob.reshape(prob_shape)
+            uniform = torch.rand(noise_shape, device=device, dtype=type_out)
+            
             mask = prob < uniform         # 43% of cpu cumtime                [n_batch,1,n_features] 
             # mask = mask.type(type_out)    # 30% of cpu cumtime # Explicit only for timing purposes.
             return input * mask           # 23% of cpu cumtime # Note works due to broadcasting

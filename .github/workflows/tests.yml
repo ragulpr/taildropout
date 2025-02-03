@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         pytorch: [ 
           '2.6',
