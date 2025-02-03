@@ -1,1 +1,3 @@
 pytest
+# Only needed due to torch 2.2.2x bug
+numpy
