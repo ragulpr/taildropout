@@ -160,10 +160,12 @@ class TailDropout(nn.Module):
         if self.k > n_features:
             raise ValueError(f"TailDropout k ({self.k}) is greater than n_features ({n_features})")
 
+        
         # Do mask[:, :, (...), :, k:] = 0 in choice of dropout_dim
         mask = input.new_ones(n_features, dtype=torch.bool)
         mask[self.k:] = 0
-
+        # mask = torch.arange(n_features, device=device, dtype=torch.int64) < self.k # Alt.
+        
         mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
         mask = mask.reshape(mask_shape)
         return input * mask
