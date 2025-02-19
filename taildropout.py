@@ -147,7 +147,7 @@ class TailDropout(nn.Module):
             # return input.masked_fill(inv_mask, 0)
         
         if mode == 'first_k':
-            return input * self._first_k_mask(input)
+            return input * self._first_k_mask(input, self.k)
             
         if mode == 'zero':
             return input * 0
@@ -155,16 +155,16 @@ class TailDropout(nn.Module):
         raise ValueError
 
     # @torch.compiler.disable()
-    def _first_k_mask(self, input) -> Tensor:
+    def _first_k_mask(self, input : Tensor, k : int) -> Tensor:
         n_features = input.shape[self.dropout_dim]
-        if self.k > n_features:
-            raise ValueError(f"TailDropout k ({self.k}) is greater than n_features ({n_features})")
+        if k > n_features:
+            raise ValueError(f"TailDropout k ({k}) is greater than n_features ({n_features})")
 
         
         # Do mask[:, :, (...), :, k:] = 0 in choice of dropout_dim
         # mask = input.new_ones(n_features, dtype=torch.bool)
-        # mask[self.k:] = 0
-        mask = torch.arange(n_features, device=input.device, dtype=torch.int64) < self.k # Alt.
+        # mask[k:] = 0
+        mask = torch.arange(n_features, device=input.device, dtype=torch.int64) < k # Alt.
         
         mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
         mask = mask.reshape(mask_shape)
