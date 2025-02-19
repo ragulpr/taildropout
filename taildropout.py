@@ -162,9 +162,9 @@ class TailDropout(nn.Module):
 
         
         # Do mask[:, :, (...), :, k:] = 0 in choice of dropout_dim
-        mask = input.new_ones(n_features, dtype=torch.bool)
-        mask[self.k:] = 0
-        # mask = torch.arange(n_features, device=device, dtype=torch.int64) < self.k # Alt.
+        # mask = input.new_ones(n_features, dtype=torch.bool)
+        # mask[self.k:] = 0
+        mask = torch.arange(n_features, device=input.device, dtype=torch.int64) < self.k # Alt.
         
         mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
         mask = mask.reshape(mask_shape)
