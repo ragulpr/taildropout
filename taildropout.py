@@ -91,24 +91,13 @@ class TailDropout(nn.Module):
         self.cdf = lambda x, scale: 1 - torch.exp(-x / scale)
         self.set_p(p)
         self.set_k(None)
-        self.register_forward_pre_hook(self._k_default_hook)
-                
+
     def set_p(self, p)->None:
         self._p = p
         if p == 0 or p == 1:
             self.scale = None
         else:
             self.scale = get_scale_param(p)
-
-    def _k_default_hook(self, module, args):
-        if len(args)==2:
-            # x, k = args
-            return args
-        elif len(args)==1:
-            (x,) = args
-            return (x, self.k)
-        else:
-            raise ValueError('Too many args to forward')
 
     def set_k(self, k : Optional[int]) :
         self.k = k
@@ -125,8 +114,8 @@ class TailDropout(nn.Module):
             self.set_k(None)
         return super().eval()
     
-    def forward(self, input: Tensor, k : Optional[int] = None) -> Tensor:
-        if k is None:
+    def forward(self, input: Tensor) -> Tensor:
+        if self.k is None:
             if self.training:
                 if self._p == 0:
                     mode = 'straight-through'
@@ -165,7 +154,7 @@ class TailDropout(nn.Module):
             # return input.masked_fill(inv_mask, 0)
         
         if mode == 'first_k':
-            return self._first_k_call(input, k)
+            return self._first_k_call(input)
             
         if mode == 'zero':
             return input * 0
@@ -173,16 +162,16 @@ class TailDropout(nn.Module):
         raise ValueError
 
     @disable_torch_2_2_compilation
-    def _first_k_call(self, input : Tensor, k : int) -> Tensor:
+    def _first_k_call(self, input : Tensor) -> Tensor:
         n_features = input.shape[self.dropout_dim]
 
-        if k > n_features:
-            raise ValueError(f"TailDropout k ({k}) is greater than n_features ({n_features})")
+        if self.k > n_features:
+            raise ValueError(f"TailDropout k ({self.k}) is greater than n_features ({n_features})")
 
         # Do mask[:, :, (...), :, k:] = 0 in choice of dropout_dim
         mask = input.new_ones(n_features, dtype=torch.bool)
-        mask[k:] = 0
-        # mask = torch.arange(n_features, device=input.device, dtype=torch.int64) < k
+        mask[self.k:] = 0
+        # mask = torch.arange(n_features, device=input.device, dtype=torch.int64) < self.k
 
         mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
         mask = mask.reshape(mask_shape)
