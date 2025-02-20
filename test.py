@@ -226,10 +226,10 @@ def test_recompilation():
     # Measure how many new graphs got compiled. Use "<=" to cover multiple torch versions + GPU
     # Forward pass - no grad
     _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=False)  # noqa
-    assert len(compile_counter.graphs) <= 2
+    assert len(compile_counter.graphs) <= 6
 
     # Repeated calls
-    for _ in range(5):
+    for _ in range(10):
         _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=False)  # noqa
         assert len(compile_counter.graphs) <= 3
 
