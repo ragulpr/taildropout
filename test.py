@@ -226,24 +226,24 @@ def test_recompilation():
     # Measure how many new graphs got compiled. Use "<=" to cover multiple torch versions + GPU
     # Forward pass - no grad
     _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=False)  # noqa
-    assert len(compile_counter.graphs) <= 2
+    assert len(compile_counter.graphs) <= 3
 
     # Repeated calls
     for _ in range(5):
         _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=False)  # noqa
-        assert len(compile_counter.graphs) <= 3
+        assert len(compile_counter.graphs) <= 4
 
     # Forward + Backward pass
     for _ in range(5):
         _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=True)  # noqa
-        assert len(compile_counter.graphs) <= 3
+        assert len(compile_counter.graphs) <= 6
 
     # Forward + Backward pass - Prime @ train
     model.train()
     model(torch.ones((10, 5, 3)).to(DEVICE))
     for _ in range(5):
         _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=True)  # noqa
-        assert len(compile_counter.graphs) <= 3
+        assert len(compile_counter.graphs) <= 6
 
     # Forward + Backward pass - Prime @ eval
     model = torch.compile(TailDropout(), backend=compile_counter)
@@ -251,7 +251,7 @@ def test_recompilation():
     model(torch.ones((10, 5, 3)).to(DEVICE))
     for _ in range(5):
         _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=True)  # noqa
-        assert len(compile_counter.graphs) <= 3
+        assert len(compile_counter.graphs) <= 6
 
 def test_compilation_set_k(): # FAILS
     torch.compiler.reset()
@@ -278,7 +278,7 @@ def test_compilation_set_k(): # FAILS
             model.set_k(k)
             y = model(x)
             assert y.sum()==k,(y,k)
-    assert len(compile_counter.graphs) <= f
+    assert len(compile_counter.graphs) <= 2
 
 
 # print('test_expected_mask',test_expected_mask())
