@@ -6,10 +6,10 @@ from math import exp
 import warnings
 from packaging import version
 
-if version.parse(torch.__version__) >= version.parse("2.3.0"):
+if version.parse(torch.__version__) < version.parse("2.3.0"):
+    # For older versions, use a no-op decorator.
     disable_torch_2_2_compilation = torch.compiler.disable
 else:
-    # For older versions, use a no-op decorator.
     disable_torch_2_2_compilation = lambda func: func
 
 def get_scale_param(p, tol=1e-9) -> float:
@@ -99,7 +99,7 @@ class TailDropout(nn.Module):
         else:
             self.scale = get_scale_param(p)
 
-    def set_k(self, k:Optional[int]) :
+    def set_k(self, k : Optional[int]) :
         self.k = k
 
     def train(self, mode=True):
@@ -154,28 +154,28 @@ class TailDropout(nn.Module):
             # return input.masked_fill(inv_mask, 0)
         
         if mode == 'first_k':
-            return input * self._first_k_mask(input)
+            return self._first_k_call(input)
             
         if mode == 'zero':
             return input * 0
 
         raise ValueError
 
-    @disable_torch_2_2_compilation()
-    def _first_k_mask(self, input : Tensor) -> Tensor:
+    @disable_torch_2_2_compilation
+    def _first_k_call(self, input : Tensor) -> Tensor:
         n_features = input.shape[self.dropout_dim]
+
         if self.k > n_features:
             raise ValueError(f"TailDropout k ({self.k}) is greater than n_features ({n_features})")
 
-        
         # Do mask[:, :, (...), :, k:] = 0 in choice of dropout_dim
         mask = input.new_ones(n_features, dtype=torch.bool)
         mask[self.k:] = 0
         # mask = torch.arange(n_features, device=input.device, dtype=torch.int64) < self.k
-        
+
         mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
         mask = mask.reshape(mask_shape)
-        return mask
+        return input * mask
 
     def extra_repr(self) -> str:
         return f'p={self._p}, batch_dim={self.batch_dim}, dropout_dim={self.dropout_dim}, k={self.k}'
