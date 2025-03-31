@@ -172,20 +172,17 @@ class TailDropout(nn.Module):
     @disable_torch_2_2_compilation
     def _first_k_call(self, input : Tensor) -> Tensor:
         n_features = input.shape[self.dropout_dim]
-        type_out = input.dtype
-        device = input.device
+
         if self.k > n_features:
             raise ValueError(f"TailDropout k ({self.k}) is greater than n_features ({n_features})")
 
-        linspace = torch.arange(1, n_features + 1, 1, device=device, dtype=type_out)
+        # Do mask[:, :, (...), :, k:] = 0 in choice of dropout_dim
+        mask = input.new_ones(n_features, dtype=torch.bool)
+        mask[self.k:] = 0
+        # mask = torch.arange(n_features, device=input.device, dtype=torch.int64) < self.k
 
-        prob_shape = replace_w_ones_except(input.shape, self.dropout_dim) #[1,1,..,n_features]
-        noise_shape = replace_w_ones_except(input.shape, self.batch_dim)  #[n_batch,1,1] if input 3d         
-
-        linspace = linspace.reshape(prob_shape)
-        uniform = torch.ones(noise_shape, device=device, dtype=type_out).fill_(self.k+1)
-        
-        mask = linspace < uniform
+        mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
+        mask = mask.reshape(mask_shape) # Ex [1,1,n_features]
         return input * mask
 
     def extra_repr(self) -> str:
