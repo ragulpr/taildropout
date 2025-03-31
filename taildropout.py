@@ -92,7 +92,6 @@ class TailDropout(nn.Module):
         self.set_p(p)
         self.register_buffer('k', torch.tensor(-1, dtype=torch.long))
         self.set_k(None)
-        self.k_is_set = False  # Flag to track if k has been initialized
 
     def set_p(self, p)->None:
         self._p = p
@@ -102,27 +101,29 @@ class TailDropout(nn.Module):
             self.scale = get_scale_param(p)
 
     def set_k(self, k: Optional[int]):
+        # use boolean flag to track if k has been initialized
+        # use buffer to avoid recompile
         if k is None:
             self.k.fill_(-1)
-            self.k_is_set = False
+            self._k_is_set = False
         else:
             self.k.fill_(k)
-            self.k_is_set = True
+            self._k_is_set = True
 
     def train(self, mode=True):
-        if self.k_is_set:
+        if self._k_is_set:
             warnings.warn("Calling .train() resets `self.k={self.k}` to None")
             self.set_k(None)
         return super().train(mode)
 
     def eval(self):
-        if self.k_is_set:
+        if self._k_is_set:
             warnings.warn("Calling .eval() resets `self.k={self.k}` to None")
             self.set_k(None)
         return super().eval()
     
     def forward(self, input: Tensor) -> Tensor:
-        if not self.k_is_set:
+        if not self._k_is_set:
             if self.training:
                 if self._p == 0:
                     mode = 'straight-through'
@@ -182,7 +183,6 @@ class TailDropout(nn.Module):
 
         mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
         mask = mask.reshape(mask_shape) # Ex [1,1,n_features]
-        # TODO try input.masked_fill(inv_mask, 0)
         return input * mask
 
     def extra_repr(self) -> str:
