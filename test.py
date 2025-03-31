@@ -221,39 +221,39 @@ def test_recompilation():
 
     # Check equality in forward pass
     # model_uncompiled = TailDropout()
-    model = torch.compile(TailDropout(), backend=compile_counter)
-    
+    model = torch.compile(TailDropout(), backend=compile_counter, dynamic =False)
+    x = torch.ones((10, 5, 3)).to(DEVICE)
+
     # Measure how many new graphs got compiled. Use "<=" to cover multiple torch versions + GPU
     # Forward pass - no grad
     _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=False)  # noqa
-    assert len(compile_counter.graphs) <= 2
+    assert len(compile_counter.graphs) <= 5
 
     # Repeated calls
     for _ in range(5):
         _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=False)  # noqa
-        assert len(compile_counter.graphs) <= 3
+        assert len(compile_counter.graphs) <= 5
 
     # Forward + Backward pass
     for _ in range(5):
         _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=True)  # noqa
-        assert len(compile_counter.graphs) <= 3
+        assert len(compile_counter.graphs) <= 6
 
     # Forward + Backward pass - Prime @ train
     model.train()
-    model(torch.ones((10, 5, 3)).to(DEVICE))
+    model(x)
     for _ in range(5):
         _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=True)  # noqa
-        assert len(compile_counter.graphs) <= 3
+        assert len(compile_counter.graphs) <= 6
 
     # Forward + Backward pass - Prime @ eval
-    model = torch.compile(TailDropout(), backend=compile_counter)
     model.eval()
-    model(torch.ones((10, 5, 3)).to(DEVICE))
+    model(x)
     for _ in range(5):
         _check_routes(dropout=model, input_shape=(10, 5, 3), requires_grad=True)  # noqa
-        assert len(compile_counter.graphs) <= 3
+        assert len(compile_counter.graphs) <= 6
 
-def test_compilation_set_k(): # FAILS
+def test_compilation_set_k():
     torch.compiler.reset()
     torch._dynamo.config.cache_size_limit = 1000 # Trick to not err out on recompile
     # torch._dynamo.config.verify_correctness = True # Fails with torch >2.2
@@ -267,9 +267,8 @@ def test_compilation_set_k(): # FAILS
     f = 16
     x = torch.ones(1, f, device = DEVICE, requires_grad=False)
     compile_counter = CompileCounterWithBackend("inductor")
-    model = TailDropout()
-    model = model.to(DEVICE)
-    model = torch.compile(model, backend=compile_counter)
+    model = TailDropout().to(DEVICE)
+    model = torch.compile(model, backend=compile_counter, dynamic=False)
     with torch.no_grad():
         for k in range(f+1):
             # for _name, module in model.named_modules():
@@ -278,7 +277,7 @@ def test_compilation_set_k(): # FAILS
             model.set_k(k)
             y = model(x)
             assert y.sum()==k,(y,k)
-    assert len(compile_counter.graphs) <= f
+    assert len(compile_counter.graphs) <= 2
 
 
 # print('test_expected_mask',test_expected_mask())

@@ -4,6 +4,13 @@ from torch import Tensor
 from typing import Union, List, Optional
 from math import exp
 import warnings
+from packaging import version
+
+if version.parse(torch.__version__) < version.parse("2.3.0"):
+    # For older versions, use a no-op decorator.
+    disable_torch_2_2_compilation = torch.compiler.disable
+else:
+    disable_torch_2_2_compilation = lambda func: func
 
 def get_scale_param(p, tol=1e-9) -> float:
     """ Numerically solve integral equation int_0^1 S(x) dx = p
@@ -83,6 +90,7 @@ class TailDropout(nn.Module):
         # exponential distribution
         self.cdf = lambda x, scale: 1 - torch.exp(-x / scale)
         self.set_p(p)
+        self.register_buffer('k', torch.tensor(-1, dtype=torch.long))
         self.set_k(None)
 
     def set_p(self, p)->None:
@@ -92,23 +100,30 @@ class TailDropout(nn.Module):
         else:
             self.scale = get_scale_param(p)
 
-    def set_k(self, k:Optional[int]) :
-        self.k = k
+    def set_k(self, k: Optional[int]):
+        # use boolean flag to track if k has been initialized
+        # use buffer to avoid recompile
+        if k is None:
+            self.k.fill_(-1)
+            self._k_is_set = False
+        else:
+            self.k.fill_(k)
+            self._k_is_set = True
 
     def train(self, mode=True):
-        if self.k is not None:
+        if self._k_is_set:
             warnings.warn("Calling .train() resets `self.k={self.k}` to None")
             self.set_k(None)
         return super().train(mode)
 
     def eval(self):
-        if self.k is not None:
+        if self._k_is_set:
             warnings.warn("Calling .eval() resets `self.k={self.k}` to None")
             self.set_k(None)
         return super().eval()
     
     def forward(self, input: Tensor) -> Tensor:
-        if self.k is None:
+        if not self._k_is_set:
             if self.training:
                 if self._p == 0:
                     mode = 'straight-through'
@@ -154,18 +169,20 @@ class TailDropout(nn.Module):
 
         raise ValueError
 
-    @torch.compiler.disable()
-    def _first_k_call(self, input):
+    @disable_torch_2_2_compilation
+    def _first_k_call(self, input : Tensor) -> Tensor:
         n_features = input.shape[self.dropout_dim]
+
         if self.k > n_features:
             raise ValueError(f"TailDropout k ({self.k}) is greater than n_features ({n_features})")
 
         # Do mask[:, :, (...), :, k:] = 0 in choice of dropout_dim
         mask = input.new_ones(n_features, dtype=torch.bool)
         mask[self.k:] = 0
+        # mask = torch.arange(n_features, device=input.device, dtype=torch.int64) < self.k
 
         mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
-        mask = mask.reshape(mask_shape)
+        mask = mask.reshape(mask_shape) # Ex [1,1,n_features]
         return input * mask
 
     def extra_repr(self) -> str:
