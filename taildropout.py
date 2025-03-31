@@ -182,6 +182,7 @@ class TailDropout(nn.Module):
 
         mask_shape = replace_w_ones_except(input.shape, self.dropout_dim)
         mask = mask.reshape(mask_shape) # Ex [1,1,n_features]
+        # TODO try input.masked_fill(inv_mask, 0)
         return input * mask
 
     def extra_repr(self) -> str:
