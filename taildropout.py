@@ -123,51 +123,38 @@ class TailDropout(nn.Module):
         return super().eval()
     
     def forward(self, input: Tensor) -> Tensor:
-        if not self._k_is_set:
-            if self.training:
-                if self._p == 0:
-                    mode = 'straight-through'
-                elif self._p == 1:
-                    mode = 'zero'
-                else:
-                    mode = 'random'
-            else:
-                mode = 'straight-through'
-        else:
-            mode = 'first_k'
-
-        if mode == 'straight-through':
+        if self.training:
+            if self._p == 0:
+                return input
+            elif self._p == 1:
+                return input * 0
+        elif not self._k_is_set:
             return input
 
-        if mode == 'random':
-            n_features = input.shape[self.dropout_dim]
-            type_out = input.dtype
-            device = input.device
+        n_features = input.shape[self.dropout_dim]
+        type_out = input.dtype
+        device = input.device
 
-            linspace = torch.arange(1, n_features + 1, 1, device=device, dtype=type_out)
-            # self.scale*n_features faster than linspace/n_features
-            prob = self.cdf(linspace, self.scale * n_features)
+        linspace = torch.arange(1, n_features + 1, 1, device=device, dtype=type_out)
+        # self.scale*n_features faster than linspace/n_features
+        prob = self.cdf(linspace, self.scale * n_features)
+        if self._k_is_set:
+            prob[self.k:] = 1
+            prob[:self.k] = 0
 
-            prob_shape = replace_w_ones_except(input.shape, self.dropout_dim) #[1,1,..,n_features]
-            noise_shape = replace_w_ones_except(input.shape, self.batch_dim)  #[n_batch,1,1] if input 3d         
+        prob_shape = replace_w_ones_except(input.shape, self.dropout_dim) #[1,1,..,n_features]
+        noise_shape = replace_w_ones_except(input.shape, self.batch_dim)  #[n_batch,1,1] if input 3d         
 
-            prob = prob.reshape(prob_shape)
-            uniform = torch.rand(noise_shape, device=device, dtype=type_out)
-            
-            mask = prob < uniform         # 43% of cpu cumtime                [n_batch,1,n_features] 
-            # mask = mask.type(type_out)    # 30% of cpu cumtime # Explicit only for timing purposes.
-            return input * mask           # 23% of cpu cumtime # Note works due to broadcasting
-            # Similar performance / identical with torch.compile but doesn't propagate NaN:
-            # inv_mask = prob >= uniform
-            # return input.masked_fill(inv_mask, 0)
+        prob = prob.reshape(prob_shape)
+        uniform = torch.rand(noise_shape, device=device, dtype=type_out)
         
-        if mode == 'first_k':
-            return self._first_k_call(input)
-            
-        if mode == 'zero':
-            return input * 0
-
-        raise ValueError
+        mask = prob < uniform         # 43% of cpu cumtime                [n_batch,1,n_features] 
+        # mask = mask.type(type_out)    # 30% of cpu cumtime # Explicit only for timing purposes.
+        return input * mask           # 23% of cpu cumtime # Note works due to broadcasting
+        # Similar performance / identical with torch.compile but doesn't propagate NaN:
+        # inv_mask = prob >= uniform
+        # return input.masked_fill(inv_mask, 0)
+        
 
     @disable_torch_2_2_compilation
     def _first_k_call(self, input : Tensor) -> Tensor:
