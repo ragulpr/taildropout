@@ -90,7 +90,6 @@ class TailDropout(nn.Module):
         # exponential distribution
         self.cdf = lambda x, scale: 1 - torch.exp(-x / scale)
         self.set_p(p)
-        self.register_buffer('k', torch.tensor(-1, dtype=torch.long))
         self.set_k(None)
         self.k_is_set = False  # Flag to track if k has been initialized
 
@@ -102,11 +101,10 @@ class TailDropout(nn.Module):
             self.scale = get_scale_param(p)
 
     def set_k(self, k: Optional[int]):
+        self.k = k
         if k is None:
-            self.k.fill_(-1)
             self.k_is_set = False
         else:
-            self.k.fill_(k)
             self.k_is_set = True
 
     def train(self, mode=True):
